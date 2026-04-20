@@ -3,97 +3,10 @@ import pikepdf
 import ollama
 import json
 import os
-import imaplib
-import email
-import re
-import tempfile
-from email.header import decode_header
+import sys
 
-MODELO = "gemma3:4b"
+MODELO = "qwen2.5vl:7b"
 
-# --- Configuración IMAP ---
-IMAP_HOST = "imap.gmail.com"   # Cambia según tu proveedor
-IMAP_PORT = 993
-EMAIL_USER = "tu_correo@gmail.com"
-EMAIL_PASS = "tu_contraseña_o_app_password"
-
-
-def conectar_imap():
-    mail = imaplib.IMAP4_SSL(IMAP_HOST, IMAP_PORT)
-    mail.login(EMAIL_USER, EMAIL_PASS)
-    return mail
-
-
-def extraer_password_del_cuerpo(cuerpo):
-    match = re.search(
-        r'(?:contraseña|password|clave|pwd|pass)[:\s]+([A-Za-z0-9@#$%&!_\-]+)',
-        cuerpo, re.IGNORECASE
-    )
-    return match.group(1).strip() if match else None
-
-
-def buscar_emails_con_pdf(mail, carpeta="INBOX", asunto_filtro=None):
-    """Devuelve lista de (uid, asunto, cuerpo_texto, ruta_pdf_temporal)."""
-    mail.select(carpeta)
-
-    criterio = '(UNSEEN)' if not asunto_filtro else f'(UNSEEN SUBJECT "{asunto_filtro}")'
-    _, uids = mail.search(None, criterio)
-
-    resultados = []
-    for uid in uids[0].split():
-        _, data = mail.fetch(uid, "(RFC822)")
-        msg = email.message_from_bytes(data[0][1])
-
-        # Asunto
-        asunto_raw, enc = decode_header(msg["Subject"])[0]
-        asunto = asunto_raw.decode(enc or "utf-8") if isinstance(asunto_raw, bytes) else asunto_raw
-
-        # Extraer cuerpo y adjuntos
-        cuerpo_texto = ""
-        ruta_pdf = None
-
-        for part in msg.walk():
-            ct = part.get_content_type()
-            cd = str(part.get("Content-Disposition", ""))
-
-            if ct == "text/plain" and "attachment" not in cd:
-                cuerpo_texto += part.get_payload(decode=True).decode(errors="ignore")
-
-            elif ct == "application/pdf" or (
-                "attachment" in cd and part.get_filename("").lower().endswith(".pdf")
-            ):
-                nombre = part.get_filename("adjunto.pdf")
-                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-                tmp.write(part.get_payload(decode=True))
-                tmp.close()
-                ruta_pdf = tmp.name
-
-        if ruta_pdf:
-            resultados.append((uid, asunto, cuerpo_texto, ruta_pdf))
-
-    return resultados
-
-
-def procesar_correos(carpeta="INBOX", asunto_filtro=None):
-    mail = conectar_imap()
-    emails = buscar_emails_con_pdf(mail, carpeta, asunto_filtro)
-    mail.logout()
-
-    todos_resultados = []
-    for uid, asunto, cuerpo, ruta_pdf in emails:
-        print(f"\nProcesando: {asunto}")
-        password = extraer_password_del_cuerpo(cuerpo)
-        if password:
-            print(f"  Contraseña encontrada: {password}")
-        else:
-            print("  Sin contraseña en el cuerpo.")
-
-        resultado = procesar_expediente(ruta_pdf, password=password)
-        resultado["_asunto"] = asunto
-        todos_resultados.append(resultado)
-        os.remove(ruta_pdf)  # limpia el temporal
-
-    return todos_resultados
 
 def unlock_pdf(input_path, output_path, password):
     try:
@@ -104,6 +17,7 @@ def unlock_pdf(input_path, output_path, password):
         print(f"Error al desbloquear PDF: {e}")
         return False
 
+
 def pdf_to_text(pdf_path):
     doc = fitz.open(pdf_path)
     texto = ""
@@ -111,6 +25,7 @@ def pdf_to_text(pdf_path):
         texto += page.get_text()
     doc.close()
     return texto
+
 
 def extract_data_with_ai(texto):
     prompt = f"""
@@ -145,14 +60,16 @@ Responde ÚNICAMENTE con el JSON. Texto del informe:
         messages=[{"role": "user", "content": prompt}],
     )
 
-    text = response["message"]["content"]
+    text = response.message.content
     text = text.replace("```json", "").replace("```", "").strip()
     return json.loads(text)
 
-def procesar_expediente(archivo_pdf, password=None):
+
+def procesar_pdf(archivo_pdf, password=None):
     temp_unlocked = "temp_unlocked.pdf"
 
     if password:
+        print(f"  Desbloqueando PDF con contraseña...")
         if not unlock_pdf(archivo_pdf, temp_unlocked, password):
             return {"error": "No se pudo desbloquear el PDF"}
         path_to_process = temp_unlocked
@@ -162,10 +79,16 @@ def procesar_expediente(archivo_pdf, password=None):
     try:
         print("Extrayendo texto del PDF...")
         texto = pdf_to_text(path_to_process)
-        print(f"Texto extraído ({len(texto)} caracteres). Analizando con {MODELO}...")
 
+        if len(texto.strip()) < 50:
+            return {"error": "PDF escaneado o vacío — se necesita OCR"}
+
+        print(f"Texto extraído ({len(texto)} caracteres). Analizando con {MODELO}...")
         data = extract_data_with_ai(texto)
         return data
+
+    except json.JSONDecodeError as e:
+        return {"error": f"El modelo no devolvió JSON válido: {e}"}
     except Exception as e:
         return {"error": str(e)}
     finally:
@@ -173,6 +96,21 @@ def procesar_expediente(archivo_pdf, password=None):
             os.remove(temp_unlocked)
 
 
-# --- Ejemplo de uso ---
-resultados = procesar_correos(asunto_filtro="Audatex")  # filtra por asunto, opcional
-print(json.dumps(resultados, indent=4, ensure_ascii=False))
+if __name__ == "__main__":
+    print("Iniciando...")
+    
+    pdf = sys.argv[1]
+    password = sys.argv[2] if len(sys.argv) > 2 else None
+
+    print(f"PDF: {pdf}")
+    print(f"Existe: {os.path.exists(pdf)}")
+
+    print("Extrayendo texto...")
+    texto = pdf_to_text(pdf)
+    print(f"Caracteres extraídos: {len(texto)}")
+
+    print("Llamando a Ollama...")
+    resultado = extract_data_with_ai(texto)
+
+    print("--- RESULTADO ---")
+    print(json.dumps(resultado, indent=4, ensure_ascii=False))
