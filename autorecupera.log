@@ -1,0 +1,105 @@
+2026-04-22 16:51:06,629 [INFO] === INICIO PROCESAMIENTO: .\informe_audatex.pdf ===
+2026-04-22 16:51:06,630 [INFO] INICIO: Extraccion de texto
+2026-04-22 16:51:06,696 [INFO] 4 bloque(s) de texto encontrados.
+2026-04-22 16:51:06,697 [INFO] FIN: Extraccion de texto — 0.07s
+2026-04-22 16:51:06,698 [INFO] INICIO: Analisis de texto completo
+2026-04-22 16:51:06,698 [INFO] INICIO: Bloque 1 — modelo texto
+2026-04-22 16:51:06,698 [INFO] Procesando bloque 1 (2000 chars)...
+2026-04-22 16:53:02,103 [INFO] HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-04-22 16:53:02,104 [INFO] FIN: Bloque 1 — modelo texto — 115.41s
+2026-04-22 16:53:02,105 [INFO] INICIO: Bloque 2 — modelo texto
+2026-04-22 16:53:02,105 [INFO] Procesando bloque 2 (2000 chars)...
+2026-04-22 16:54:55,892 [INFO] HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-04-22 16:54:55,893 [INFO] FIN: Bloque 2 — modelo texto — 113.79s
+2026-04-22 16:54:55,893 [INFO] INICIO: Bloque 3 — modelo texto
+2026-04-22 16:54:55,894 [INFO] Procesando bloque 3 (2000 chars)...
+2026-04-22 16:56:25,688 [INFO] HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-04-22 16:56:25,688 [INFO] FIN: Bloque 3 — modelo texto — 89.80s
+2026-04-22 16:56:25,689 [INFO] INICIO: Bloque 4 — modelo texto
+2026-04-22 16:56:25,689 [INFO] Procesando bloque 4 (993 chars)...
+2026-04-22 16:57:40,961 [INFO] HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-04-22 16:57:40,961 [INFO] FIN: Bloque 4 — modelo texto — 75.27s
+2026-04-22 16:57:40,961 [INFO] FIN: Analisis de texto completo — 394.26s
+2026-04-22 16:57:40,961 [INFO] INICIO: Extraccion de imagenes
+2026-04-22 16:57:41,050 [INFO] Imagen aceptada (400x225)
+2026-04-22 16:57:41,052 [INFO] Imagen aceptada (400x225)
+2026-04-22 16:57:41,053 [INFO] Imagen aceptada (400x225)
+2026-04-22 16:57:41,055 [INFO] Imagen aceptada (400x225)
+2026-04-22 16:57:41,057 [INFO] Imagen aceptada (400x225)
+2026-04-22 16:57:41,058 [INFO] Imagen aceptada (400x225)
+2026-04-22 16:57:41,059 [INFO] Imagenes extraidas: 6
+2026-04-22 16:57:41,059 [INFO] FIN: Extraccion de imagenes — 0.10s
+2026-04-22 16:57:41,059 [INFO] INICIO: Descripcion visual de daños
+2026-04-22 17:06:02,340 [INFO] HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-04-22 17:06:02,341 [INFO] FIN: Descripcion visual de daños — 501.28s
+2026-04-22 17:06:02,341 [INFO] === FIN PROCESAMIENTO — total: 895.71s ===
+2026-04-22 17:06:02,344 [INFO] Guardado en: .\informe_audatex_resultado.json
+2026-04-22 17:08:42,989 [INFO] === INICIO PROCESAMIENTO: .\informe_audatex.pdf ===
+2026-04-22 17:08:42,990 [INFO] INICIO: Extraccion de texto
+2026-04-22 17:08:43,013 [INFO] 4 bloque(s) de texto encontrados.
+2026-04-22 17:08:43,014 [INFO] FIN: Extraccion de texto — 0.02s
+2026-04-22 17:08:43,014 [INFO] INICIO: Analisis de texto completo
+2026-04-22 17:08:43,014 [INFO] INICIO: Bloque 1 — modelo texto
+2026-04-22 17:08:43,015 [INFO] Procesando bloque 1 (2000 chars)...
+2026-04-22 17:09:14,042 [INFO] HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 500 Internal Server Error"
+2026-04-22 17:09:14,043 [INFO] FIN: Bloque 1 — modelo texto — 31.03s
+2026-04-22 17:09:14,044 [INFO] FIN: Analisis de texto completo — 31.03s
+2026-04-22 17:09:14,044 [ERROR] Error: llama runner process has terminated: %!w(<nil>) (status code: 500)
+2026-04-22 17:09:14,046 [INFO] Guardado en: .\informe_audatex_resultado.json
+2026-04-22 17:09:45,217 [INFO] === INICIO PROCESAMIENTO: .\informe_audatex.pdf ===
+2026-04-22 17:09:45,218 [INFO] INICIO: Extraccion de texto
+2026-04-22 17:09:45,238 [INFO] 4 bloque(s) de texto encontrados.
+2026-04-22 17:09:45,238 [INFO] FIN: Extraccion de texto — 0.02s
+2026-04-22 17:09:45,238 [INFO] INICIO: Analisis de texto completo
+2026-04-22 17:09:45,238 [INFO] INICIO: Bloque 1 — modelo texto
+2026-04-22 17:09:45,238 [INFO] Procesando bloque 1 (2000 chars)...
+2026-04-22 17:11:32,631 [INFO] HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-04-22 17:11:32,633 [INFO] FIN: Bloque 1 — modelo texto — 107.39s
+2026-04-22 17:11:32,633 [INFO] INICIO: Bloque 2 — modelo texto
+2026-04-22 17:11:32,633 [INFO] Procesando bloque 2 (2000 chars)...
+2026-04-22 17:13:25,769 [INFO] HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-04-22 17:13:25,769 [INFO] FIN: Bloque 2 — modelo texto — 113.14s
+2026-04-22 17:13:25,769 [INFO] INICIO: Bloque 3 — modelo texto
+2026-04-22 17:13:25,770 [INFO] Procesando bloque 3 (2000 chars)...
+2026-04-22 17:14:53,438 [INFO] HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-04-22 17:14:53,438 [INFO] FIN: Bloque 3 — modelo texto — 87.67s
+2026-04-22 17:14:53,438 [INFO] INICIO: Bloque 4 — modelo texto
+2026-04-22 17:14:53,439 [INFO] Procesando bloque 4 (993 chars)...
+2026-04-22 17:16:09,702 [INFO] FIN: Bloque 4 — modelo texto — 76.26s
+2026-04-22 17:16:09,702 [INFO] FIN: Analisis de texto completo — 384.46s
+2026-04-22 17:18:59,220 [INFO] === INICIO PROCESAMIENTO: .\informe_audatex.pdf ===
+2026-04-22 17:18:59,220 [INFO] INICIO: Extraccion de texto
+2026-04-22 17:18:59,241 [INFO] 4 bloque(s) de texto encontrados.
+2026-04-22 17:18:59,241 [INFO] FIN: Extraccion de texto — 0.02s
+2026-04-22 17:18:59,241 [INFO] INICIO: Analisis de texto completo
+2026-04-22 17:18:59,241 [INFO] INICIO: Bloque 1 — modelo texto
+2026-04-22 17:18:59,241 [INFO] Procesando bloque 1 (2000 chars)...
+2026-04-22 17:19:33,296 [INFO] HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-04-22 17:19:33,296 [INFO] FIN: Bloque 1 — modelo texto — 34.05s
+2026-04-22 17:19:33,296 [INFO] INICIO: Bloque 2 — modelo texto
+2026-04-22 17:19:33,297 [INFO] Procesando bloque 2 (2000 chars)...
+2026-04-22 17:20:01,658 [INFO] HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-04-22 17:20:01,658 [INFO] FIN: Bloque 2 — modelo texto — 28.36s
+2026-04-22 17:20:01,658 [INFO] INICIO: Bloque 3 — modelo texto
+2026-04-22 17:20:01,658 [INFO] Procesando bloque 3 (2000 chars)...
+2026-04-22 17:20:22,978 [INFO] HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-04-22 17:20:22,979 [INFO] FIN: Bloque 3 — modelo texto — 21.32s
+2026-04-22 17:20:22,979 [INFO] INICIO: Bloque 4 — modelo texto
+2026-04-22 17:20:22,979 [INFO] Procesando bloque 4 (993 chars)...
+2026-04-22 17:20:42,173 [INFO] HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-04-22 17:20:42,174 [INFO] FIN: Bloque 4 — modelo texto — 19.19s
+2026-04-22 17:20:42,174 [INFO] FIN: Analisis de texto completo — 102.93s
+2026-04-22 17:20:42,174 [INFO] INICIO: Extraccion de imagenes
+2026-04-22 17:20:42,215 [INFO] Imagen aceptada (400x225)
+2026-04-22 17:20:42,216 [INFO] Imagen aceptada (400x225)
+2026-04-22 17:20:42,218 [INFO] Imagen aceptada (400x225)
+2026-04-22 17:20:42,219 [INFO] Imagen aceptada (400x225)
+2026-04-22 17:20:42,221 [INFO] Imagen aceptada (400x225)
+2026-04-22 17:20:42,223 [INFO] Imagen aceptada (400x225)
+2026-04-22 17:20:42,223 [INFO] Imagenes extraidas: 6
+2026-04-22 17:20:42,223 [INFO] FIN: Extraccion de imagenes — 0.05s
+2026-04-22 17:20:42,223 [INFO] INICIO: Descripcion visual de daños
+2026-04-22 17:23:33,789 [INFO] HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-04-22 17:23:33,790 [INFO] FIN: Descripcion visual de daños — 171.57s
+2026-04-22 17:23:33,790 [INFO] === FIN PROCESAMIENTO — total: 274.57s ===
+2026-04-22 17:23:33,792 [INFO] Guardado en: .\informe_audatex_resultado.json

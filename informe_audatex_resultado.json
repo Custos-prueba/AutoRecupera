@@ -4,9 +4,9 @@
         "referencia": "1652244-1",
         "fecha_informe": "11/03/2026",
         "fecha_siniestro": null,
-        "fecha_tarifa_recambios": "11/03/2026",
-        "codigo_audatransfer": "MWX9N38683",
-        "compromiso_pago": null
+        "fecha_tarifa_recambios": "01/03/2026",
+        "codigo_audatransfer": "88D5FB",
+        "compromiso_pago": "N"
     },
     "vehiculo": {
         "fabricante": "BMW MOTOS",
@@ -16,25 +16,25 @@
         "codigo_tipo": "1C410",
         "fecha_matriculacion": "24/02/2023",
         "km": "14504",
-        "cilindrada_cc": "350 CC",
-        "potencia_cv": "34CV",
-        "potencia_kw": "25KW",
+        "cilindrada_cc": "350",
+        "potencia_cv": "34",
+        "potencia_kw": "25",
         "color": "N2U BLACK STORM MET",
-        "acabado": null,
-        "equipamiento": "BICAPA"
+        "acabado": "BICAPA",
+        "equipamiento": "PARABRISAS ALTO, TOP CASE 30 LTR."
     },
     "valoracion": {
         "subtotal_piezas": "5957,06",
-        "descuentos": null,
+        "descuentos": "-15,00",
         "total_mo_chapa": "242,50",
-        "horas_mo": null,
+        "horas_mo": "67",
         "precio_hora_chapa": "30,00",
         "precio_hora_pintura": null,
-        "total_sin_iva": null,
-        "iva_pct": null,
-        "total_con_iva": null
+        "total_sin_iva": "6184,56",
+        "iva_pct": "21",
+        "total_con_iva": "7483,32"
     },
     "piezas_sustituidas": [],
     "operaciones_mo": [],
-    "descripcion_visual_danos": "Las imágenes 4, 5 y 6 muestran daños físicos al vehículo.\n\n- En la imagen 4, el motor y el chasis del vehículo están dañados. Se observa un impacto en el motor y posibles roturas en el chasis.\n\n- En la imagen 5, el vehículo presenta daños en el chasis, motor y partes delantera. Se observa un impacto frontal que ha afectado al chasis y al motor.\n\n- En la imagen 6, el vehículo muestra daños en el chasis, motor y partes delantera. Se observa un impacto frontal que ha afectado al chasis y al motor."
+    "descripcion_visual_danos": "Las imágenes 4, 5 y 6 muestran daños físicos al vehículo.\n\n- **Imagen 4:** La motocicleta tiene daños en el carenado frontal, con grietas y desgaste visible. La zona afectada es el carenado delantero, con daño leve a moderado.\n\n- **Imagen 5:** La motocicleta muestra daños más graves en el carenado frontal y lateral. El carenado frontal está roto y desgastado, y el carenado lateral también tiene daños visibles. La gravedad del daño es moderada a severa.\n\n- **Imagen 6:** Similar a la imagen 5, la motocicleta presenta daños en el carenado frontal y lateral. El carenado frontal está roto y desgastado, y el carenado lateral también tiene daños visibles. La gravedad del daño es moderada a severa."
 }
