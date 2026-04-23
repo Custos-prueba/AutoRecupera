@@ -103,3 +103,39 @@
 2026-04-22 17:23:33,790 [INFO] FIN: Descripcion visual de daños — 171.57s
 2026-04-22 17:23:33,790 [INFO] === FIN PROCESAMIENTO — total: 274.57s ===
 2026-04-22 17:23:33,792 [INFO] Guardado en: .\informe_audatex_resultado.json
+2026-04-23 12:32:30,262 [INFO] === INICIO PROCESAMIENTO: .\informe_audatex.pdf ===
+2026-04-23 12:32:30,262 [INFO] INICIO: Extraccion de texto
+2026-04-23 12:32:30,308 [INFO] 4 bloque(s) de texto encontrados.
+2026-04-23 12:32:30,309 [INFO] FIN: Extraccion de texto — 0.05s
+2026-04-23 12:32:30,309 [INFO] INICIO: Analisis de texto completo
+2026-04-23 12:32:30,309 [INFO] INICIO: Bloque 1 — modelo texto
+2026-04-23 12:32:30,309 [INFO] Procesando bloque 1 (2000 chars)...
+2026-04-23 12:33:00,972 [INFO] HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-04-23 12:33:00,973 [INFO] FIN: Bloque 1 — modelo texto — 30.66s
+2026-04-23 12:33:00,973 [INFO] INICIO: Bloque 2 — modelo texto
+2026-04-23 12:33:00,973 [INFO] Procesando bloque 2 (2000 chars)...
+2026-04-23 12:33:26,985 [INFO] HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-04-23 12:33:26,985 [INFO] FIN: Bloque 2 — modelo texto — 26.01s
+2026-04-23 12:33:26,986 [INFO] INICIO: Bloque 3 — modelo texto
+2026-04-23 12:33:26,986 [INFO] Procesando bloque 3 (2000 chars)...
+2026-04-23 12:33:47,193 [INFO] HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-04-23 12:33:47,194 [INFO] FIN: Bloque 3 — modelo texto — 20.21s
+2026-04-23 12:33:47,194 [INFO] INICIO: Bloque 4 — modelo texto
+2026-04-23 12:33:47,194 [INFO] Procesando bloque 4 (993 chars)...
+2026-04-23 12:34:04,092 [INFO] HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-04-23 12:34:04,092 [INFO] FIN: Bloque 4 — modelo texto — 16.90s
+2026-04-23 12:34:04,092 [INFO] FIN: Analisis de texto completo — 93.78s
+2026-04-23 12:34:04,093 [INFO] INICIO: Extraccion de imagenes
+2026-04-23 12:34:04,147 [INFO] Imagen aceptada (400x225)
+2026-04-23 12:34:04,148 [INFO] Imagen aceptada (400x225)
+2026-04-23 12:34:04,150 [INFO] Imagen aceptada (400x225)
+2026-04-23 12:34:04,151 [INFO] Imagen aceptada (400x225)
+2026-04-23 12:34:04,153 [INFO] Imagen aceptada (400x225)
+2026-04-23 12:34:04,154 [INFO] Imagen aceptada (400x225)
+2026-04-23 12:34:04,155 [INFO] Imagenes extraidas: 6
+2026-04-23 12:34:04,155 [INFO] FIN: Extraccion de imagenes — 0.06s
+2026-04-23 12:34:04,155 [INFO] INICIO: Descripcion visual de daños
+2026-04-23 12:36:22,205 [INFO] HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-04-23 12:36:22,206 [INFO] FIN: Descripcion visual de daños — 138.05s
+2026-04-23 12:36:22,206 [INFO] === FIN PROCESAMIENTO — total: 231.94s ===
+2026-04-23 12:36:22,260 [INFO] Excel guardado en: resultados_peritos.xlsx
