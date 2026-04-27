@@ -316,7 +316,6 @@
 #     log.info(f"Guardado en: {salida}")
 
 
-
 import fitz  # PyMuPDF
 import pikepdf
 import ollama
@@ -331,6 +330,13 @@ import logging
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# --- CONFIGURACIÓN OLLAMA ---
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+CLIENTE_OLLAMA = ollama.Client(host=OLLAMA_HOST, timeout=300)
 
 MODELO_TEXTO = "qwen2.5:14b"
 MODELO_VISION = "qwen2.5vl:7b"
@@ -345,13 +351,11 @@ logging.basicConfig(
     ]
 )
 log = logging.getLogger(__name__)
+log.info(f"Conectando a Ollama en: {OLLAMA_HOST}")
 
-
-
-
-COLOR_CABECERA    = "1F4E79"   # azul oscuro
-COLOR_SECCION     = "2E75B6"   # azul medio
-COLOR_FILA_PAR    = "DEEAF1"   # azul muy claro
+COLOR_CABECERA    = "1F4E79"
+COLOR_SECCION     = "2E75B6"
+COLOR_FILA_PAR    = "DEEAF1"
 COLOR_TEXTO_BLANCO = "FFFFFF"
 COLOR_TEXTO_NEGRO  = "000000"
 
@@ -386,15 +390,7 @@ def _estilo_valor(cell, valor, fila_par=False):
     cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
     cell.border = _borde_fino()
 
-
-
-
 def guardar_excel(data, ruta_salida, ruta_pdf):
-    """
-    Guarda o actualiza el Excel de resultados.
-    Cada PDF procesado añade una nueva fila en la hoja 'Historial'
-    y sobreescribe la hoja 'Último informe' con los datos detallados.
-    """
     if os.path.exists(ruta_salida):
         wb = load_workbook(ruta_salida)
     else:
@@ -403,13 +399,10 @@ def guardar_excel(data, ruta_salida, ruta_pdf):
 
     _actualizar_historial(wb, data, ruta_pdf)
     _crear_hoja_detalle(wb, data)
-
     wb.save(ruta_salida)
     log.info(f"Excel guardado en: {ruta_salida}")
 
-
 def _actualizar_historial(wb, data, ruta_pdf):
-    """Una fila por informe procesado."""
     if "Historial" not in wb.sheetnames:
         ws = wb.create_sheet("Historial", 0)
     else:
@@ -423,7 +416,6 @@ def _actualizar_historial(wb, data, ruta_pdf):
         "Compromiso pago", "Código Audatransfer",
     ]
 
-    # Cabecera solo si la hoja está vacía
     if ws.max_row == 1 and ws["A1"].value is None:
         for col, texto in enumerate(COLUMNAS, start=1):
             _estilo_cabecera(ws.cell(row=1, column=col), texto)
@@ -456,14 +448,11 @@ def _actualizar_historial(wb, data, ruta_pdf):
     for col, v in enumerate(valores, start=1):
         _estilo_valor(ws.cell(row=fila, column=col), v, fila_par=par)
 
-    # Anchos de columna
     anchos = [28, 14, 16, 14, 14, 14, 18, 12, 20, 10, 12, 14, 8, 14, 16, 18]
     for col, ancho in enumerate(anchos, start=1):
         ws.column_dimensions[get_column_letter(col)].width = ancho
 
-
 def _crear_hoja_detalle(wb, data):
-    """Hoja con todos los datos del último informe procesado."""
     nombre = "Último informe"
     if nombre in wb.sheetnames:
         del wb[nombre]
@@ -511,7 +500,6 @@ def _crear_hoja_detalle(wb, data):
         ]),
     ]
 
-    # Título principal
     ws.merge_cells("A1:B1")
     _estilo_cabecera(ws["A1"], "INFORME DE PERITACIÓN — RESULTADO EXTRACCIÓN")
     ws.row_dimensions[1].height = 24
@@ -531,9 +519,8 @@ def _crear_hoja_detalle(wb, data):
             ws.row_dimensions[fila].height = 18
             par = not par
             fila += 1
-        fila += 1  # Espacio entre secciones
+        fila += 1
 
-    # Descripción visual de daños
     desc = data.get("descripcion_visual_danos", "")
     if desc:
         ws.merge_cells(f"A{fila}:B{fila}")
@@ -548,9 +535,6 @@ def _crear_hoja_detalle(wb, data):
         celda.border = _borde_fino()
         ws.row_dimensions[fila].height = 120
 
-
-
-
 def cronometro(nombre):
     class Timer:
         def __enter__(self):
@@ -562,16 +546,14 @@ def cronometro(nombre):
             log.info(f"FIN: {nombre} — {self.elapsed:.2f}s")
     return Timer()
 
-
 def unlock_pdf(input_path, output_path, password):
     try:
         with pikepdf.open(input_path, password=password) as pdf:
             pdf.save(output_path)
-            return True
+        return True
     except Exception as e:
         log.error(f"Error al desbloquear PDF: {e}")
         return False
-
 
 def extraer_texto_por_bloques(pdf_path, bloque_chars=2000):
     doc = fitz.open(pdf_path)
@@ -587,14 +569,12 @@ def extraer_texto_por_bloques(pdf_path, bloque_chars=2000):
     doc.close()
     return bloques
 
-
 def redimensionar_imagen(img_bytes, max_px=512):
     img = Image.open(io.BytesIO(img_bytes))
     img.thumbnail((max_px, max_px))
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=75)
     return buf.getvalue()
-
 
 def pdf_to_images(pdf_path, max_imagenes=6, min_ancho=300, min_alto=200):
     doc = fitz.open(pdf_path)
@@ -608,7 +588,6 @@ def pdf_to_images(pdf_path, max_imagenes=6, min_ancho=300, min_alto=200):
             ancho = base_image.get("width", 0)
             alto = base_image.get("height", 0)
             if ancho < min_ancho or alto < min_alto:
-                log.debug(f"Imagen ignorada ({ancho}x{alto}) — demasiado pequeña")
                 continue
             img_bytes = redimensionar_imagen(base_image["image"], max_px=512)
             img_b64 = base64.b64encode(img_bytes).decode("utf-8")
@@ -619,7 +598,6 @@ def pdf_to_images(pdf_path, max_imagenes=6, min_ancho=300, min_alto=200):
     doc.close()
     log.info(f"Imagenes extraidas: {len(imagenes)}")
     return imagenes
-
 
 def extraer_bloque(texto, campos):
     lista_campos = "\n".join(f"{c}:" for c in campos)
@@ -646,7 +624,7 @@ IMPORTANTE:
 Texto:
 {texto}
 """
-    response = ollama.chat(
+    response = CLIENTE_OLLAMA.chat(
         model=MODELO_TEXTO,
         messages=[{"role": "user", "content": prompt}],
         keep_alive=0,
@@ -659,7 +637,6 @@ Texto:
             valor = valor.strip()
             campos_extraidos[clave.strip()] = None if valor.lower() in ("null", "") else valor
     return campos_extraidos
-
 
 def extraer_datos_texto(bloques):
     campos_bloque = [
@@ -678,8 +655,7 @@ def extraer_datos_texto(bloques):
     campos_acumulados = {}
     for i, bloque in enumerate(bloques[:4]):
         if i < len(campos_bloque):
-            with cronometro(f"Bloque {i+1} — modelo texto"):
-                log.info(f"Procesando bloque {i+1} ({len(bloque)} chars)...")
+            with cronometro(f"Bloque {i+1}"):
                 resultado = extraer_bloque(bloque, campos_bloque[i])
                 for k, v in resultado.items():
                     if v is not None and campos_acumulados.get(k) is None:
@@ -726,7 +702,6 @@ def extraer_datos_texto(bloques):
         "operaciones_mo": []
     }
 
-
 def describir_imagenes(imagenes, datos_ya_extraidos):
     if not imagenes:
         return "Sin imagenes de daños disponibles."
@@ -751,12 +726,12 @@ def describir_imagenes(imagenes, datos_ya_extraidos):
 De todas las imagenes que ves, identifica cuales muestran daños fisicos al vehiculo.
 Para cada imagen con daños describe la zona afectada, tipo y gravedad del daño.
 {ya_tenemos}
-Si ves datos tecnicos que NO tenemos aun (matricula, VIN, kilometros), extráelos.
+Si ves datos tecnicos que NO tenemos aun, extráelos.
 Ignora imagenes que solo muestren documentos, sellos o texto del PDF.
 Responde en español en texto plano, sin asteriscos, sin markdown, sin formato especial.
 Se directo y conciso."""
 
-    response = ollama.chat(
+    response = CLIENTE_OLLAMA.chat(
         model=MODELO_VISION,
         messages=[{
             "role": "user",
@@ -767,14 +742,12 @@ Se directo y conciso."""
     )
     return response.message.content
 
-
 def procesar_pdf(archivo_pdf, password=None):
     temp_unlocked = "temp_unlocked.pdf"
     inicio_total = time.time()
     log.info(f"=== INICIO PROCESAMIENTO: {archivo_pdf} ===")
 
     if password:
-        log.info("Desbloqueando PDF con contrasena...")
         if not unlock_pdf(archivo_pdf, temp_unlocked, password):
             return {"error": "No se pudo desbloquear el PDF"}
         path_to_process = temp_unlocked
@@ -784,19 +757,19 @@ def procesar_pdf(archivo_pdf, password=None):
     try:
         with cronometro("Extraccion de texto"):
             bloques = extraer_texto_por_bloques(path_to_process, bloque_chars=2000)
-            log.info(f"{len(bloques)} bloque(s) de texto encontrados.")
+            log.info(f"{len(bloques)} bloque(s) encontrados")
 
         if not bloques or len("".join(bloques).strip()) < 50:
-            return {"error": "PDF escaneado o vacio - se necesita OCR"}
+            return {"error": "PDF escaneado o vacio"}
 
-        with cronometro("Analisis de texto completo"):
+        with cronometro("Analisis de texto"):
             data = extraer_datos_texto(bloques)
         del bloques
 
         with cronometro("Extraccion de imagenes"):
             imagenes = pdf_to_images(path_to_process, max_imagenes=6, min_ancho=300, min_alto=200)
 
-        with cronometro("Descripcion visual de daños"):
+        with cronometro("Descripcion de daños"):
             descripcion = describir_imagenes(imagenes, data)
         del imagenes
 
@@ -813,14 +786,14 @@ def procesar_pdf(archivo_pdf, password=None):
         if os.path.exists(temp_unlocked):
             os.remove(temp_unlocked)
 
-
-
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Uso: python prueba_ollama_excel.py <archivo.pdf> [contrasena] [salida.xlsx]")
-        print("Ejemplo: python prueba_ollama_excel.py informe_audatex.pdf")
-        print("Ejemplo: python prueba_ollama_excel.py informe_audatex.pdf mipassword123")
-        print("Ejemplo: python prueba_ollama_excel.py informe_audatex.pdf '' resultados.xlsx")
+        print("Uso: python autorecupera.py <archivo.pdf> [contrasena] [salida.xlsx]")
+        print("\nEjemplos:")
+        print("  python autorecupera.py informe.pdf")
+        print("  python autorecupera.py informe.pdf mipass resultados.xlsx")
+        print("\nVariables de entorno:")
+        print("  OLLAMA_HOST=http://IP:11434  (por defecto http://localhost:11434)")
         sys.exit(1)
 
     pdf      = sys.argv[1]
@@ -828,13 +801,13 @@ if __name__ == "__main__":
     salida   = sys.argv[3] if len(sys.argv) > 3 else "resultados_peritos.xlsx"
 
     if not os.path.exists(pdf):
-        log.error(f"No se encuentra el archivo {pdf}")
+        log.error(f"No se encuentra: {pdf}")
         sys.exit(1)
 
     resultado = procesar_pdf(pdf, password=password)
 
     if "error" in resultado:
-        log.error(f"Error en el procesamiento: {resultado['error']}")
+        log.error(f"Error: {resultado['error']}")
         sys.exit(1)
 
     guardar_excel(resultado, salida, pdf)
