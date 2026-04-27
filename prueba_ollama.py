@@ -316,7 +316,10 @@
 #     log.info(f"Guardado en: {salida}")
 
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 662b8888d0a7c6362fab955e2d5996d45b5b8902
 import pypdf
 import pikepdf
 import ollama
