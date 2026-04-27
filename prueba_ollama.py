@@ -316,7 +316,7 @@
 #     log.info(f"Guardado en: {salida}")
 
 
-import fitz  # PyMuPDF
+import pypdf
 import pikepdf
 import ollama
 import json
@@ -330,18 +330,10 @@ import logging
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
-from dotenv import load_dotenv
-
-load_dotenv()
-
-# --- CONFIGURACIÓN OLLAMA ---
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-CLIENTE_OLLAMA = ollama.Client(host=OLLAMA_HOST, timeout=300)
 
 MODELO_TEXTO = "qwen2.5:14b"
 MODELO_VISION = "qwen2.5vl:7b"
 
-# --- Logging ---
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -351,7 +343,6 @@ logging.basicConfig(
     ]
 )
 log = logging.getLogger(__name__)
-log.info(f"Conectando a Ollama en: {OLLAMA_HOST}")
 
 COLOR_CABECERA    = "1F4E79"
 COLOR_SECCION     = "2E75B6"
@@ -399,6 +390,7 @@ def guardar_excel(data, ruta_salida, ruta_pdf):
 
     _actualizar_historial(wb, data, ruta_pdf)
     _crear_hoja_detalle(wb, data)
+
     wb.save(ruta_salida)
     log.info(f"Excel guardado en: {ruta_salida}")
 
@@ -556,17 +548,20 @@ def unlock_pdf(input_path, output_path, password):
         return False
 
 def extraer_texto_por_bloques(pdf_path, bloque_chars=2000):
-    doc = fitz.open(pdf_path)
     bloques = []
     texto_acumulado = ""
-    for page in doc:
-        texto_acumulado += page.get_text()
-        if len(texto_acumulado) >= bloque_chars:
-            bloques.append(texto_acumulado[:bloque_chars])
-            texto_acumulado = texto_acumulado[bloque_chars:]
+    with pypdf.PdfReader(pdf_path) as doc:
+        for page in doc.pages:
+            try:
+                texto_acumulado += page.extract_text()
+            except Exception as e:
+                log.warning(f"Error extrayendo texto de página: {e}")
+                continue
+            if len(texto_acumulado) >= bloque_chars:
+                bloques.append(texto_acumulado[:bloque_chars])
+                texto_acumulado = texto_acumulado[bloque_chars:]
     if texto_acumulado.strip():
         bloques.append(texto_acumulado)
-    doc.close()
     return bloques
 
 def redimensionar_imagen(img_bytes, max_px=512):
@@ -577,25 +572,33 @@ def redimensionar_imagen(img_bytes, max_px=512):
     return buf.getvalue()
 
 def pdf_to_images(pdf_path, max_imagenes=6, min_ancho=300, min_alto=200):
-    doc = fitz.open(pdf_path)
     imagenes = []
-    for page in doc:
-        for img in page.get_images():
-            if len(imagenes) >= max_imagenes:
-                break
-            xref = img[0]
-            base_image = doc.extract_image(xref)
-            ancho = base_image.get("width", 0)
-            alto = base_image.get("height", 0)
-            if ancho < min_ancho or alto < min_alto:
-                continue
-            img_bytes = redimensionar_imagen(base_image["image"], max_px=512)
-            img_b64 = base64.b64encode(img_bytes).decode("utf-8")
-            imagenes.append(img_b64)
-            log.info(f"Imagen aceptada ({ancho}x{alto})")
-        if len(imagenes) >= max_imagenes:
-            break
-    doc.close()
+    try:
+        with pypdf.PdfReader(pdf_path) as doc:
+            for page_num, page in enumerate(doc.pages):
+                if len(imagenes) >= max_imagenes:
+                    break
+                for img_index, img in enumerate(page.images):
+                    if len(imagenes) >= max_imagenes:
+                        break
+                    try:
+                        img_data = img.get_object()
+                        width = img_data.get("/Width", 0)
+                        height = img_data.get("/Height", 0)
+                        if width < min_ancho or height < min_alto:
+                            log.debug(f"Imagen ignorada ({width}x{height})")
+                            continue
+                        img_bytes = img.get_data()
+                        img_bytes = redimensionar_imagen(img_bytes, max_px=512)
+                        img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+                        imagenes.append(img_b64)
+                        log.info(f"Imagen aceptada ({width}x{height})")
+                    except Exception as e:
+                        log.warning(f"Error procesando imagen: {e}")
+                        continue
+    except Exception as e:
+        log.warning(f"Error extrayendo imágenes: {e}")
+    
     log.info(f"Imagenes extraidas: {len(imagenes)}")
     return imagenes
 
@@ -624,7 +627,7 @@ IMPORTANTE:
 Texto:
 {texto}
 """
-    response = CLIENTE_OLLAMA.chat(
+    response = ollama.chat(
         model=MODELO_TEXTO,
         messages=[{"role": "user", "content": prompt}],
         keep_alive=0,
@@ -656,6 +659,7 @@ def extraer_datos_texto(bloques):
     for i, bloque in enumerate(bloques[:4]):
         if i < len(campos_bloque):
             with cronometro(f"Bloque {i+1}"):
+                log.info(f"Procesando bloque {i+1} ({len(bloque)} chars)...")
                 resultado = extraer_bloque(bloque, campos_bloque[i])
                 for k, v in resultado.items():
                     if v is not None and campos_acumulados.get(k) is None:
@@ -731,7 +735,7 @@ Ignora imagenes que solo muestren documentos, sellos o texto del PDF.
 Responde en español en texto plano, sin asteriscos, sin markdown, sin formato especial.
 Se directo y conciso."""
 
-    response = CLIENTE_OLLAMA.chat(
+    response = ollama.chat(
         model=MODELO_VISION,
         messages=[{
             "role": "user",
@@ -788,12 +792,10 @@ def procesar_pdf(archivo_pdf, password=None):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Uso: python autorecupera.py <archivo.pdf> [contrasena] [salida.xlsx]")
+        print("Uso: python autorecupera_freebsd.py <archivo.pdf> [contrasena] [salida.xlsx]")
         print("\nEjemplos:")
-        print("  python autorecupera.py informe.pdf")
-        print("  python autorecupera.py informe.pdf mipass resultados.xlsx")
-        print("\nVariables de entorno:")
-        print("  OLLAMA_HOST=http://IP:11434  (por defecto http://localhost:11434)")
+        print("  python autorecupera_freebsd.py informe.pdf")
+        print("  python autorecupera_freebsd.py informe.pdf mipass resultados.xlsx")
         sys.exit(1)
 
     pdf      = sys.argv[1]
