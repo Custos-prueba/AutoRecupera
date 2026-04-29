@@ -51,9 +51,7 @@ def verificar_ollama():
 # ============ CHAT CON OLLAMA ============
 
 def chat_ollama(model, prompt, timeout=120):
-    """
-    Envía un prompt a Ollama y retorna la respuesta
-    """
+    """Envía un prompt a Ollama y retorna la respuesta"""
     try:
         payload = {
             "model": model,
@@ -87,7 +85,6 @@ def chat_ollama(model, prompt, timeout=120):
 def guardar_json(data, ruta_salida):
     """Guarda los datos en formato JSON"""
     try:
-        # Agregar metadatos
         output = {
             "metadata": {
                 "timestamp": datetime.now().isoformat(),
@@ -101,7 +98,6 @@ def guardar_json(data, ruta_salida):
             "data": data
         }
         
-        # Guardar con formato legible
         with open(ruta_salida, 'w', encoding='utf-8') as f:
             json.dump(output, f, ensure_ascii=False, indent=2)
         
@@ -189,37 +185,40 @@ def pdf_to_images(pdf_path, max_imagenes=6, min_ancho=300, min_alto=200):
     return imagenes
 
 def extraer_bloque(texto, campos):
-    prompt = f"""Extrae estos datos del texto. Responde SOLO en formato CAMPO: VALOR
-Si no encuentras un dato, escribe CAMPO: null
+    prompt = f"""EXTRAE SOLO VALORES. Nada de explicaciones.
 
-nr_informe:
-referencia:
-fecha_informe:
-fecha_siniestro:
-fabricante:
-modelo:
-matricula:
-bastidor:
-codigo_audatransfer:
-compromiso_pago:
-fecha_matriculacion:
-km:
-color:
-acabado:
-equipamiento:
-codigo_tipo:
-cilindrada_cc:
-potencia_cv:
-potencia_kw:
-subtotal_piezas:
-descuentos:
-total_mo_chapa:
-horas_mo:
-precio_hora_chapa:
-precio_hora_pintura:
-total_sin_iva:
-iva_pct:
-total_con_iva:
+Formato: CAMPO: VALOR
+
+Si no encuentras, escribe: CAMPO: null
+
+nr_informe: 
+referencia: 
+fecha_informe: 
+fecha_siniestro: 
+fabricante: 
+modelo: 
+matricula: 
+bastidor: 
+codigo_audatransfer: 
+compromiso_pago: 
+fecha_matriculacion: 
+km: 
+color: 
+acabado: 
+equipamiento: 
+codigo_tipo: 
+cilindrada_cc: 
+potencia_cv: 
+potencia_kw: 
+subtotal_piezas: 
+descuentos: 
+total_mo_chapa: 
+horas_mo: 
+precio_hora_chapa: 
+precio_hora_pintura: 
+total_sin_iva: 
+iva_pct: 
+total_con_iva: 
 
 Texto:
 {texto}
@@ -229,17 +228,19 @@ Texto:
     if not respuesta:
         return {}
     
-    lineas = respuesta.strip().splitlines()
     campos_extraidos = {}
+    lineas = respuesta.strip().splitlines()
     for linea in lineas:
         if ":" in linea:
             clave, _, valor = linea.partition(":")
             clave = clave.strip()
             valor = valor.strip()
-            if valor.lower() not in ("null", ""):
+            # Limpiar respuestas que incluyen explicaciones
+            if "(" in valor:
+                valor = valor.split("(")[0].strip()
+            if valor and valor.lower() not in ("null", ""):
                 campos_extraidos[clave] = valor
     return campos_extraidos
-
 
 def extraer_datos_texto(bloques):
     campos_bloque = [
@@ -251,12 +252,10 @@ def extraer_datos_texto(bloques):
         ["subtotal_piezas", "descuentos", "total_mo_chapa", "horas_mo",
          "precio_hora_chapa", "precio_hora_pintura", "total_sin_iva", "iva_pct",
          "total_con_iva"],
-        ["total_sin_iva", "iva_pct", "total_con_iva", "descuentos",
-         "horas_mo", "precio_hora_pintura"],
     ]
 
     campos_acumulados = {}
-    for i, bloque in enumerate(bloques[:4]):
+    for i, bloque in enumerate(bloques[:3]):
         if i < len(campos_bloque):
             with cronometro(f"Bloque {i+1}"):
                 log.info(f"Procesando bloque {i+1} ({len(bloque)} chars)...")
@@ -426,7 +425,6 @@ if __name__ == "__main__":
     password = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] else None
     salida   = sys.argv[3] if len(sys.argv) > 3 else "resultado.json"
     
-    # Override OLLAMA_HOST si se pasa como argumento
     if len(sys.argv) > 4:
         OLLAMA_HOST = sys.argv[4]
 
@@ -434,7 +432,6 @@ if __name__ == "__main__":
         log.error(f"No se encuentra: {pdf}")
         sys.exit(1)
 
-    # Verificar conexión a Ollama
     if not verificar_ollama():
         log.error("No hay conexión a Ollama. Abortando.")
         sys.exit(1)
@@ -448,7 +445,6 @@ if __name__ == "__main__":
     guardar_json(resultado, salida)
     print(f"\n✅ JSON guardado en: {salida}")
     
-    # Mostrar resumen
     inf = resultado.get("informe", {})
     veh = resultado.get("vehiculo", {})
     print(f"\n📄 Informe: {inf.get('nr_informe', 'N/A')}")
