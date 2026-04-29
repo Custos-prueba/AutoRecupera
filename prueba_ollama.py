@@ -316,13 +316,11 @@
 #     log.info(f"Guardado en: {salida}")
 
 
-<<<<<<< HEAD
 
-=======
->>>>>>> 662b8888d0a7c6362fab955e2d5996d45b5b8902
-import pypdf
+
 import pikepdf
 import ollama
+import pypdf
 import json
 import os
 import sys
@@ -337,6 +335,8 @@ from openpyxl.utils import get_column_letter
 
 MODELO_TEXTO = "qwen2.5:14b"
 MODELO_VISION = "qwen2.5vl:7b"
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://10.68.52.11:11434")
+CLIENTE_OLLAMA = ollama.Client(host=OLLAMA_HOST)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -554,16 +554,16 @@ def unlock_pdf(input_path, output_path, password):
 def extraer_texto_por_bloques(pdf_path, bloque_chars=2000):
     bloques = []
     texto_acumulado = ""
-    with pypdf.PdfReader(pdf_path) as doc:
-        for page in doc.pages:
-            try:
-                texto_acumulado += page.extract_text()
-            except Exception as e:
-                log.warning(f"Error extrayendo texto de página: {e}")
-                continue
-            if len(texto_acumulado) >= bloque_chars:
-                bloques.append(texto_acumulado[:bloque_chars])
-                texto_acumulado = texto_acumulado[bloque_chars:]
+    doc = pypdf.PdfReader(pdf_path)
+    for page in doc.pages:
+        try:
+            texto_acumulado += page.extract_text() or ""
+        except Exception as e:
+            log.warning(f"Error extrayendo texto de página: {e}")
+            continue
+        if len(texto_acumulado) >= bloque_chars:
+            bloques.append(texto_acumulado[:bloque_chars])
+            texto_acumulado = texto_acumulado[bloque_chars:]
     if texto_acumulado.strip():
         bloques.append(texto_acumulado)
     return bloques
@@ -578,28 +578,28 @@ def redimensionar_imagen(img_bytes, max_px=512):
 def pdf_to_images(pdf_path, max_imagenes=6, min_ancho=300, min_alto=200):
     imagenes = []
     try:
-        with pypdf.PdfReader(pdf_path) as doc:
-            for page_num, page in enumerate(doc.pages):
+        doc = pypdf.PdfReader(pdf_path)
+        for page_num, page in enumerate(doc.pages):
+            if len(imagenes) >= max_imagenes:
+                break
+            for img_index, img in enumerate(page.images):
                 if len(imagenes) >= max_imagenes:
                     break
-                for img_index, img in enumerate(page.images):
-                    if len(imagenes) >= max_imagenes:
-                        break
-                    try:
-                        img_data = img.get_object()
-                        width = img_data.get("/Width", 0)
-                        height = img_data.get("/Height", 0)
-                        if width < min_ancho or height < min_alto:
-                            log.debug(f"Imagen ignorada ({width}x{height})")
-                            continue
-                        img_bytes = img.get_data()
-                        img_bytes = redimensionar_imagen(img_bytes, max_px=512)
-                        img_b64 = base64.b64encode(img_bytes).decode("utf-8")
-                        imagenes.append(img_b64)
-                        log.info(f"Imagen aceptada ({width}x{height})")
-                    except Exception as e:
-                        log.warning(f"Error procesando imagen: {e}")
+                try:
+                    img_data = img.get_object()
+                    width = img_data.get("/Width", 0)
+                    height = img_data.get("/Height", 0)
+                    if width < min_ancho or height < min_alto:
+                        log.debug(f"Imagen ignorada ({width}x{height})")
                         continue
+                    img_bytes = img.get_data()
+                    img_bytes = redimensionar_imagen(img_bytes, max_px=512)
+                    img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+                    imagenes.append(img_b64)
+                    log.info(f"Imagen aceptada ({width}x{height})")
+                except Exception as e:
+                    log.warning(f"Error procesando imagen: {e}")
+                    continue
     except Exception as e:
         log.warning(f"Error extrayendo imágenes: {e}")
     
@@ -631,7 +631,7 @@ IMPORTANTE:
 Texto:
 {texto}
 """
-    response = ollama.chat(
+    response = CLIENTE_OLLAMA.chat(
         model=MODELO_TEXTO,
         messages=[{"role": "user", "content": prompt}],
         keep_alive=0,
@@ -739,7 +739,7 @@ Ignora imagenes que solo muestren documentos, sellos o texto del PDF.
 Responde en español en texto plano, sin asteriscos, sin markdown, sin formato especial.
 Se directo y conciso."""
 
-    response = ollama.chat(
+    response = CLIENTE_OLLAMA.chat(
         model=MODELO_VISION,
         messages=[{
             "role": "user",

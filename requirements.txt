@@ -1,0 +1,5 @@
+ollama==0.6.1
+pikepdf==10.0.2
+pypdf==5.4.0
+Pillow==11.2.1
+openpyxl==3.1.5
