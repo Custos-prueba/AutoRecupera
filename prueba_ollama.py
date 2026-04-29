@@ -14,8 +14,8 @@ from datetime import datetime
 # ============ CONFIGURACIÓN ============
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://10.68.52.11:11434")
-MODELO_TEXTO = "neural-chat"
-MODELO_VISION = "llava"
+MODELO_TEXTO = "qwen2.5:14b"
+MODELO_VISION = "qwen2.5vl:7b"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -51,7 +51,9 @@ def verificar_ollama():
 # ============ CHAT CON OLLAMA ============
 
 def chat_ollama(model, prompt, timeout=120):
-    """Envía un prompt a Ollama y retorna la respuesta"""
+    """
+    Envía un prompt a Ollama y retorna la respuesta
+    """
     try:
         payload = {
             "model": model,
@@ -85,6 +87,7 @@ def chat_ollama(model, prompt, timeout=120):
 def guardar_json(data, ruta_salida):
     """Guarda los datos en formato JSON"""
     try:
+        # Agregar metadatos
         output = {
             "metadata": {
                 "timestamp": datetime.now().isoformat(),
@@ -98,6 +101,7 @@ def guardar_json(data, ruta_salida):
             "data": data
         }
         
+        # Guardar con formato legible
         with open(ruta_salida, 'w', encoding='utf-8') as f:
             json.dump(output, f, ensure_ascii=False, indent=2)
         
@@ -185,40 +189,49 @@ def pdf_to_images(pdf_path, max_imagenes=6, min_ancho=300, min_alto=200):
     return imagenes
 
 def extraer_bloque(texto, campos):
-    prompt = f"""EXTRAE SOLO VALORES. Nada de explicaciones.
+    lista_campos = "\n".join(f"- {c}" for c in campos)
+    prompt = f"""Eres un extractor de datos de documentos Audatex.
 
-Formato: CAMPO: VALOR
+Extrae EXACTAMENTE estos datos del texto. Para cada campo, responde en formato:
+CAMPO: VALOR
 
-Si no encuentras, escribe: CAMPO: null
+Si el valor no existe, escribe: CAMPO: null
 
-nr_informe: 
-referencia: 
-fecha_informe: 
-fecha_siniestro: 
-fabricante: 
-modelo: 
-matricula: 
-bastidor: 
-codigo_audatransfer: 
-compromiso_pago: 
-fecha_matriculacion: 
-km: 
-color: 
-acabado: 
-equipamiento: 
-codigo_tipo: 
-cilindrada_cc: 
-potencia_cv: 
-potencia_kw: 
-subtotal_piezas: 
-descuentos: 
-total_mo_chapa: 
-horas_mo: 
-precio_hora_chapa: 
-precio_hora_pintura: 
-total_sin_iva: 
-iva_pct: 
-total_con_iva: 
+Campos a extraer:
+{lista_campos}
+
+REGLAS IMPORTANTES:
+- nr_informe: número como MWX9N38683 o similar
+- referencia: código de referencia (ej: 1652244-1)
+- fecha_informe: fecha en formato DD/MM/YYYY
+- fecha_siniestro: fecha en formato DD/MM/YYYY
+- fecha_tarifa_recambios: fecha en formato DD/MM/YYYY
+- fabricante: marca del vehículo (ej: BMW MOTOS)
+- modelo: modelo exacto (ej: C 400 GT)
+- matricula: matrícula (ej: 3486MFC) - NO el bastidor
+- bastidor: número VIN completo (ej: WB40C6107PS906699)
+- codigo_tipo: código del tipo (ej: 1C410)
+- fecha_matriculacion: fecha en formato DD/MM/YYYY
+- km: número de kilómetros
+- color: color del vehículo
+- acabado: tipo de pintura (BICAPA, UNICAPA)
+- equipamiento: extras (PARABRISAS ALTO, TOP CASE, etc)
+- codigo_audatransfer: código hex de 6 caracteres (ej: 88D5FB)
+- compromiso_pago: S o N
+- cilindrada_cc: cilindrada en cc
+- potencia_cv: potencia en caballos
+- potencia_kw: potencia en kW
+- subtotal_piezas: total de repuestos sin IVA
+- descuentos: total descuentos
+- total_mo_chapa: total mano de obra
+- horas_mo: horas de mano de obra
+- precio_hora_chapa: precio por hora
+- precio_hora_pintura: precio por hora pintura
+- total_sin_iva: SUMA TOTAL SIN IVA
+- iva_pct: porcentaje IVA (ej: 21)
+- total_con_iva: SUMA TOTAL CON IVA
+
+SOLO RESPONDE CON CAMPO: VALOR, UNA LÍNEA POR CAMPO. Sin explicaciones.
 
 Texto:
 {texto}
@@ -228,30 +241,29 @@ Texto:
     if not respuesta:
         return {}
     
-    campos_extraidos = {}
     lineas = respuesta.strip().splitlines()
+    campos_extraidos = {}
     for linea in lineas:
         if ":" in linea:
             clave, _, valor = linea.partition(":")
             clave = clave.strip()
             valor = valor.strip()
-            # Limpiar respuestas que incluyen explicaciones
-            if "(" in valor:
-                valor = valor.split("(")[0].strip()
-            if valor and valor.lower() not in ("null", ""):
-                campos_extraidos[clave] = valor
+            # Limpiar valores
+            if valor.lower() in ("null", "no encontrado", "n/a", ""):
+                valor = None
+            campos_extraidos[clave] = valor
     return campos_extraidos
 
 def extraer_datos_texto(bloques):
     campos_bloque = [
         ["nr_informe", "referencia", "fecha_informe", "fecha_siniestro",
-         "fabricante", "modelo", "matricula", "bastidor", "compromiso_pago",
-         "codigo_audatransfer"],
-        ["fecha_matriculacion", "km", "cilindrada_cc", "potencia_cv", "potencia_kw",
-         "color", "acabado", "equipamiento", "codigo_tipo", "fecha_tarifa_recambios"],
+         "fabricante", "modelo", "matricula", "bastidor", "codigo_audatransfer",
+         "compromiso_pago", "codigo_tipo", "fecha_matriculacion"],
+        ["km", "color", "acabado", "equipamiento", "cilindrada_cc", 
+         "potencia_cv", "potencia_kw"],
         ["subtotal_piezas", "descuentos", "total_mo_chapa", "horas_mo",
-         "precio_hora_chapa", "precio_hora_pintura", "total_sin_iva", "iva_pct",
-         "total_con_iva"],
+         "precio_hora_chapa", "precio_hora_pintura", "total_sin_iva", 
+         "iva_pct", "total_con_iva"],
     ]
 
     campos_acumulados = {}
@@ -425,6 +437,7 @@ if __name__ == "__main__":
     password = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] else None
     salida   = sys.argv[3] if len(sys.argv) > 3 else "resultado.json"
     
+    # Override OLLAMA_HOST si se pasa como argumento
     if len(sys.argv) > 4:
         OLLAMA_HOST = sys.argv[4]
 
@@ -432,6 +445,7 @@ if __name__ == "__main__":
         log.error(f"No se encuentra: {pdf}")
         sys.exit(1)
 
+    # Verificar conexión a Ollama
     if not verificar_ollama():
         log.error("No hay conexión a Ollama. Abortando.")
         sys.exit(1)
@@ -445,6 +459,7 @@ if __name__ == "__main__":
     guardar_json(resultado, salida)
     print(f"\n✅ JSON guardado en: {salida}")
     
+    # Mostrar resumen
     inf = resultado.get("informe", {})
     veh = resultado.get("vehiculo", {})
     print(f"\n📄 Informe: {inf.get('nr_informe', 'N/A')}")
