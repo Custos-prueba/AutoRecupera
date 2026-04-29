@@ -14,7 +14,7 @@ from datetime import datetime
 # ============ CONFIGURACIÓN ============
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://10.68.52.11:11434")
-MODELO_TEXTO = "mistral"
+MODELO_TEXTO = "neural-chat"
 MODELO_VISION = "llava"
 
 logging.basicConfig(
