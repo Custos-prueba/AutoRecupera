@@ -188,27 +188,52 @@ def pdf_to_images(pdf_path, max_imagenes=6, min_ancho=300, min_alto=200):
     log.info(f"Imagenes extraidas: {len(imagenes)}")
     return imagenes
 
+# def extraer_bloque(texto, campos):
+#     lista_campos = "\n".join(f"{c}:" for c in campos)
+#     prompt = f"""Extrae del siguiente texto estos datos, uno por linea con formato CLAVE: VALOR.
+# Si no encuentras el dato escribe CLAVE: null
+# No añadas explicaciones ni texto extra.
+
+# {lista_campos}
+
+# IMPORTANTE:
+# - compromiso_pago debe ser "S" o "N"
+# - matricula es la matricula del vehiculo (ej: 3486MFC), NO el bastidor
+# - bastidor es el numero de chasis VIN (empieza por WB, longitud 17 caracteres)
+# - subtotal_piezas es solo el coste de repuestos (sin mano de obra)
+# - total_mo_chapa es solo la mano de obra
+# - acabado es el tipo de pintura (ej: BICAPA, UNICAPA)
+# - equipamiento son los extras del vehiculo (ej: PARABRISAS ALTO, TOP CASE)
+# - codigo_audatransfer es un codigo hexadecimal de 6 caracteres (ej: 88D5FB)
+# - fecha_siniestro es la fecha del accidente, diferente a la fecha del informe
+# - total_sin_iva es "SUMA TOTAL SIN IVA" en el documento
+# - total_con_iva es "SUMA TOTAL CON IVA" en el documento
+# - iva_pct es el porcentaje de IVA aplicado (ej: 21)
+
+# Texto:
+# {texto}
+# """
+    
+#     respuesta = chat_ollama(MODELO_TEXTO, prompt, timeout=120)
+#     if not respuesta:
+#         return {}
+    
+#     lineas = respuesta.strip().splitlines()
+#     campos_extraidos = {}
+#     for linea in lineas:
+#         if ":" in linea:
+#             clave, _, valor = linea.partition(":")
+#             valor = valor.strip()
+#             campos_extraidos[clave.strip()] = None if valor.lower() in ("null", "") else valor
+#     return campos_extraidos
+
+
 def extraer_bloque(texto, campos):
-    lista_campos = "\n".join(f"{c}:" for c in campos)
-    prompt = f"""Extrae del siguiente texto estos datos, uno por linea con formato CLAVE: VALOR.
-Si no encuentras el dato escribe CLAVE: null
-No añadas explicaciones ni texto extra.
+    campos_str = ", ".join(campos)
+    prompt = f"""Extrae estos datos del texto. Responde SOLO CAMPO: VALOR, una línea por cada campo.
+Si no encuentras un dato, escribe CAMPO: null
 
-{lista_campos}
-
-IMPORTANTE:
-- compromiso_pago debe ser "S" o "N"
-- matricula es la matricula del vehiculo (ej: 3486MFC), NO el bastidor
-- bastidor es el numero de chasis VIN (empieza por WB, longitud 17 caracteres)
-- subtotal_piezas es solo el coste de repuestos (sin mano de obra)
-- total_mo_chapa es solo la mano de obra
-- acabado es el tipo de pintura (ej: BICAPA, UNICAPA)
-- equipamiento son los extras del vehiculo (ej: PARABRISAS ALTO, TOP CASE)
-- codigo_audatransfer es un codigo hexadecimal de 6 caracteres (ej: 88D5FB)
-- fecha_siniestro es la fecha del accidente, diferente a la fecha del informe
-- total_sin_iva es "SUMA TOTAL SIN IVA" en el documento
-- total_con_iva es "SUMA TOTAL CON IVA" en el documento
-- iva_pct es el porcentaje de IVA aplicado (ej: 21)
+Campos: {campos_str}
 
 Texto:
 {texto}
@@ -223,9 +248,20 @@ Texto:
     for linea in lineas:
         if ":" in linea:
             clave, _, valor = linea.partition(":")
+            clave = clave.strip()
             valor = valor.strip()
-            campos_extraidos[clave.strip()] = None if valor.lower() in ("null", "") else valor
+            if valor.lower() in ("null", ""):
+                valor = None
+            campos_extraidos[clave] = valor
     return campos_extraidos
+
+
+
+
+
+
+
+
 
 def extraer_datos_texto(bloques):
     campos_bloque = [
