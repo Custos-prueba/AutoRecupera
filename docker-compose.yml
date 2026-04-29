@@ -1,9 +1,0 @@
-services:
-  app:
-    build: .
-    image: autorecupera:latest
-    environment:
-      - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
-    volumes:
-      - ./:/app
-    command: python prueba_ollama.py informe_audatex.pdf
