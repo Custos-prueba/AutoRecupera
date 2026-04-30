@@ -14,7 +14,7 @@ from datetime import datetime
 # ============ CONFIGURACIÓN ============
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://10.68.52.11:11434")
-MODELO_TEXTO = "qwen2.5:3b"  # El más rápido
+MODELO_TEXTO = "qwen2.5:7b"
 MODELO_VISION = "qwen2.5vl:7b"
 
 logging.basicConfig(
@@ -50,7 +50,7 @@ def verificar_ollama():
 
 # ============ CHAT CON OLLAMA ============
 
-def chat_ollama(model, prompt, timeout=1280):
+def chat_ollama(model, prompt, timeout=180):
     """
     Envía un prompt a Ollama y retorna la respuesta
     """
@@ -188,52 +188,18 @@ def pdf_to_images(pdf_path, max_imagenes=6, min_ancho=300, min_alto=200):
     log.info(f"Imagenes extraidas: {len(imagenes)}")
     return imagenes
 
+
+
 def extraer_bloque(texto, campos):
-    lista_campos = "\n".join(f"- {c}" for c in campos)
-    prompt = f"""Eres un extractor de datos de documentos Audatex.
+    # Construir lista de campos dinámicamente
+    campos_str = "\n".join(campos)
+    
+    prompt = f"""Busca en el texto y extrae SOLO estos valores:
 
-Extrae EXACTAMENTE estos datos del texto. Para cada campo, responde en formato:
-CAMPO: VALOR
+{campos_str}
 
-Si el valor no existe, escribe: CAMPO: null
+Formato: CAMPO: valor
 
-Campos a extraer:
-{lista_campos}
-
-REGLAS IMPORTANTES:
-- nr_informe: número como MWX9N38683 o similar
-- referencia: código de referencia (ej: 1652244-1)
-- fecha_informe: fecha en formato DD/MM/YYYY
-- fecha_siniestro: fecha en formato DD/MM/YYYY
-- fecha_tarifa_recambios: fecha en formato DD/MM/YYYY
-- fabricante: marca del vehículo (ej: BMW MOTOS)
-- modelo: modelo exacto (ej: C 400 GT)
-- matricula: matrícula (ej: 3486MFC) - NO el bastidor
-- bastidor: número VIN completo (ej: WB40C6107PS906699)
-- codigo_tipo: código del tipo (ej: 1C410)
-- fecha_matriculacion: fecha en formato DD/MM/YYYY
-- km: número de kilómetros
-- color: color del vehículo
-- acabado: tipo de pintura (BICAPA, UNICAPA)
-- equipamiento: extras (PARABRISAS ALTO, TOP CASE, etc)
-- codigo_audatransfer: código hex de 6 caracteres (ej: 88D5FB)
-- compromiso_pago: S o N
-- cilindrada_cc: cilindrada en cc
-- potencia_cv: potencia en caballos
-- potencia_kw: potencia en kW
-- subtotal_piezas: total de repuestos sin IVA
-- descuentos: total descuentos
-- total_mo_chapa: total mano de obra
-- horas_mo: horas de mano de obra
-- precio_hora_chapa: precio por hora
-- precio_hora_pintura: precio por hora pintura
-- total_sin_iva: SUMA TOTAL SIN IVA
-- iva_pct: porcentaje IVA (ej: 21)
-- total_con_iva: SUMA TOTAL CON IVA
-
-SOLO RESPONDE CON CAMPO: VALOR, UNA LÍNEA POR CAMPO. Sin explicaciones.
-
-Texto:
 {texto}
 """
     
@@ -241,18 +207,17 @@ Texto:
     if not respuesta:
         return {}
     
-    lineas = respuesta.strip().splitlines()
     campos_extraidos = {}
-    for linea in lineas:
+    for linea in respuesta.strip().splitlines():
         if ":" in linea:
             clave, _, valor = linea.partition(":")
-            clave = clave.strip()
             valor = valor.strip()
-            # Limpiar valores
-            if valor.lower() in ("null", "no encontrado", "n/a", ""):
-                valor = None
-            campos_extraidos[clave] = valor
+            if valor and valor.lower() != "null":
+                campos_extraidos[clave.strip()] = valor
     return campos_extraidos
+
+
+
 
 def extraer_datos_texto(bloques):
     campos_bloque = [
