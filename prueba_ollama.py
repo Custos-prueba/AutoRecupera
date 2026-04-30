@@ -33,7 +33,7 @@ def verificar_ollama():
     """Verifica que Ollama está disponible"""
     try:
         log.info(f"Verificando conexión a {OLLAMA_HOST}...")
-        response = requests.get(f"{OLLAMA_HOST}/api/tags", timeout=5)
+        response = requests.get(f"{OLLAMA_HOST}/api/tags", timeout=5, verify=False)
         if response.status_code == 200:
             log.info(f"✓ Conectado a Ollama")
             return True
@@ -42,7 +42,6 @@ def verificar_ollama():
             return False
     except requests.exceptions.ConnectionError:
         log.error(f"✗ No se puede conectar a {OLLAMA_HOST}")
-        log.error(f"  Verifica que Ollama está corriendo en Windows")
         return False
     except Exception as e:
         log.error(f"✗ Error: {e}")
@@ -51,9 +50,7 @@ def verificar_ollama():
 # ============ CHAT CON OLLAMA ============
 
 def chat_ollama(model, prompt, timeout=180):
-    """
-    Envía un prompt a Ollama y retorna la respuesta
-    """
+    """Envía un prompt a Ollama y retorna la respuesta"""
     try:
         payload = {
             "model": model,
@@ -61,25 +58,27 @@ def chat_ollama(model, prompt, timeout=180):
             "stream": False
         }
         
-        log.debug(f"Enviando a {model}...")
         response = requests.post(
             f"{OLLAMA_HOST}/api/chat",
             json=payload,
-            timeout=timeout
+            timeout=timeout,
+            verify=False
         )
         
         if response.status_code == 200:
-            data = response.json()
-            return data.get("message", {}).get("content", "")
+            return response.json()['message']['content']
         else:
-            log.error(f"Error en chat: {response.status_code}")
+            log.error(f"Error: {response.status_code}")
             return None
             
     except requests.exceptions.Timeout:
-        log.error(f"Timeout en chat (>{timeout}s)")
+        log.error(f"Timeout ({timeout}s)")
+        return None
+    except requests.exceptions.ConnectionError as e:
+        log.error(f"Conexión rechazada: {e}")
         return None
     except Exception as e:
-        log.error(f"Error en chat: {e}")
+        log.error(f"Error: {e}")
         return None
 
 # ============ GUARDAR JSON ============
@@ -87,7 +86,6 @@ def chat_ollama(model, prompt, timeout=180):
 def guardar_json(data, ruta_salida):
     """Guarda los datos en formato JSON"""
     try:
-        # Agregar metadatos
         output = {
             "metadata": {
                 "timestamp": datetime.now().isoformat(),
@@ -101,7 +99,6 @@ def guardar_json(data, ruta_salida):
             "data": data
         }
         
-        # Guardar con formato legible
         with open(ruta_salida, 'w', encoding='utf-8') as f:
             json.dump(output, f, ensure_ascii=False, indent=2)
         
@@ -172,7 +169,6 @@ def pdf_to_images(pdf_path, max_imagenes=6, min_ancho=300, min_alto=200):
                     width = img_data.get("/Width", 0)
                     height = img_data.get("/Height", 0)
                     if width < min_ancho or height < min_alto:
-                        log.debug(f"Imagen ignorada ({width}x{height})")
                         continue
                     img_bytes = img.get_data()
                     img_bytes = redimensionar_imagen(img_bytes, max_px=512)
@@ -188,22 +184,24 @@ def pdf_to_images(pdf_path, max_imagenes=6, min_ancho=300, min_alto=200):
     log.info(f"Imagenes extraidas: {len(imagenes)}")
     return imagenes
 
-
-
 def extraer_bloque(texto, campos):
-    # Construir lista de campos dinámicamente
-    campos_str = "\n".join(campos)
+    campos_str = ", ".join(campos)
     
-    prompt = f"""Busca en el texto y extrae SOLO estos valores:
+    prompt = f"""Eres experto extrayendo datos de documentos de seguros.
+El documento puede ser de cualquier aseguradora (Audatex, AXA, Mapfre, etc).
 
-{campos_str}
+Extrae estos campos: {campos_str}
 
-Formato: CAMPO: valor
+Responde SOLO en formato:
+CAMPO: valor
 
+Si no encuentras, escribe: CAMPO: null
+
+Documento:
 {texto}
 """
     
-    respuesta = chat_ollama(MODELO_TEXTO, prompt, timeout=120)
+    respuesta = chat_ollama(MODELO_TEXTO, prompt, timeout=180)
     if not respuesta:
         return {}
     
@@ -212,12 +210,9 @@ Formato: CAMPO: valor
         if ":" in linea:
             clave, _, valor = linea.partition(":")
             valor = valor.strip()
-            if valor and valor.lower() != "null":
+            if valor and valor.lower() != "null" and len(valor) < 150:
                 campos_extraidos[clave.strip()] = valor
     return campos_extraidos
-
-
-
 
 def extraer_datos_texto(bloques):
     campos_bloque = [
@@ -288,68 +283,54 @@ def describir_imagenes(imagenes, datos_ya_extraidos):
     v = datos_ya_extraidos.get("vehiculo", {})
     inf = datos_ya_extraidos.get("informe", {})
     if v.get("km"):
-        campos_encontrados.append(f"kilometros ({v['km']} km)")
+        campos_encontrados.append(f"km ({v['km']})")
     if v.get("matricula"):
         campos_encontrados.append(f"matricula ({v['matricula']})")
     if v.get("bastidor"):
         campos_encontrados.append(f"bastidor ({v['bastidor']})")
-    if inf.get("fecha_siniestro"):
-        campos_encontrados.append(f"fecha siniestro ({inf['fecha_siniestro']})")
 
     ya_tenemos = ""
     if campos_encontrados:
-        ya_tenemos = f"\nNOTA: Ya tenemos del texto — {', '.join(campos_encontrados)}. No hace falta buscarlos en las imagenes.\n"
+        ya_tenemos = f"\nTenemos: {', '.join(campos_encontrados)}\n"
 
-    prompt = f"""Eres un perito de seguros analizando fotos de un vehiculo siniestrado.
-De todas las imagenes que ves, identifica cuales muestran daños fisicos al vehiculo.
-Para cada imagen con daños describe la zona afectada, tipo y gravedad del daño.
+    prompt = f"""Eres perito de seguros. Analiza estas imagenes de vehiculo siniestrado.
 {ya_tenemos}
-Si ves datos tecnicos que NO tenemos aun, extráelos.
-Ignora imagenes que solo muestren documentos, sellos o texto del PDF.
-Responde en español en texto plano, sin asteriscos, sin markdown, sin formato especial.
-Se directo y conciso."""
+Describe daños visibles: zona, tipo, gravedad. Sé conciso, sin markdown."""
 
     try:
         payload = {
             "model": MODELO_VISION,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
+            "messages": [{"role": "user", "content": prompt}],
             "stream": False
         }
         
         if imagenes:
             payload["messages"][0]["images"] = imagenes
         
-        log.debug("Enviando imagenes a Ollama...")
         response = requests.post(
             f"{OLLAMA_HOST}/api/chat",
             json=payload,
-            timeout=300
+            timeout=300,
+            verify=False
         )
         
         if response.status_code == 200:
-            data = response.json()
-            return data.get("message", {}).get("content", "Sin análisis disponible")
+            return response.json()['message']['content']
         else:
-            log.error(f"Error en análisis de imágenes: {response.status_code}")
-            return "Error analizando imágenes"
+            return "Error en análisis"
             
     except Exception as e:
-        log.error(f"Error en describir_imagenes: {e}")
+        log.error(f"Error: {e}")
         return "Error analizando imágenes"
 
 def procesar_pdf(archivo_pdf, password=None):
     temp_unlocked = "temp_unlocked.pdf"
     inicio_total = time.time()
-    log.info(f"=== INICIO PROCESAMIENTO: {archivo_pdf} ===")
+    log.info(f"=== PROCESANDO: {archivo_pdf} ===")
 
     if password:
         if not unlock_pdf(archivo_pdf, temp_unlocked, password):
-            return {"error": "No se pudo desbloquear el PDF"}
+            return {"error": "No se pudo desbloquear PDF"}
         path_to_process = temp_unlocked
     else:
         path_to_process = archivo_pdf
@@ -357,7 +338,7 @@ def procesar_pdf(archivo_pdf, password=None):
     try:
         with cronometro("Extraccion de texto"):
             bloques = extraer_texto_por_bloques(path_to_process, bloque_chars=2000)
-            log.info(f"{len(bloques)} bloque(s) encontrados")
+            log.info(f"{len(bloques)} bloques")
 
         if not bloques or len("".join(bloques).strip()) < 50:
             return {"error": "PDF escaneado o vacio"}
@@ -367,7 +348,7 @@ def procesar_pdf(archivo_pdf, password=None):
         del bloques
 
         with cronometro("Extraccion de imagenes"):
-            imagenes = pdf_to_images(path_to_process, max_imagenes=6, min_ancho=300, min_alto=200)
+            imagenes = pdf_to_images(path_to_process, max_imagenes=6)
 
         with cronometro("Descripcion de daños"):
             descripcion = describir_imagenes(imagenes, data)
@@ -376,7 +357,7 @@ def procesar_pdf(archivo_pdf, password=None):
         data["descripcion_visual_danos"] = descripcion
 
         total = time.time() - inicio_total
-        log.info(f"=== FIN PROCESAMIENTO — total: {total:.2f}s ===")
+        log.info(f"=== FIN — {total:.2f}s ===")
         return data
 
     except Exception as e:
@@ -391,28 +372,22 @@ def procesar_pdf(archivo_pdf, password=None):
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Uso: python autorecupera.py <archivo.pdf> [contraseña] [salida.json]")
-        print("\nEjemplos:")
-        print("  python autorecupera.py informe.pdf")
-        print("  python autorecupera.py informe.pdf mipass resultado.json")
-        print("\nVariable de entorno:")
-        print("  export OLLAMA_HOST='http://10.68.52.11:11434'")
+        print("Ej: python autorecupera.py informe.pdf")
         sys.exit(1)
 
     pdf      = sys.argv[1]
     password = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] else None
     salida   = sys.argv[3] if len(sys.argv) > 3 else "resultado.json"
     
-    # Override OLLAMA_HOST si se pasa como argumento
     if len(sys.argv) > 4:
         OLLAMA_HOST = sys.argv[4]
 
     if not os.path.exists(pdf):
-        log.error(f"No se encuentra: {pdf}")
+        log.error(f"No existe: {pdf}")
         sys.exit(1)
 
-    # Verificar conexión a Ollama
     if not verificar_ollama():
-        log.error("No hay conexión a Ollama. Abortando.")
+        log.error("No hay conexión a Ollama")
         sys.exit(1)
 
     resultado = procesar_pdf(pdf, password=password)
@@ -422,11 +397,10 @@ if __name__ == "__main__":
         sys.exit(1)
 
     guardar_json(resultado, salida)
-    print(f"\n✅ JSON guardado en: {salida}")
+    print(f"\n✅ Guardado: {salida}")
     
-    # Mostrar resumen
     inf = resultado.get("informe", {})
     veh = resultado.get("vehiculo", {})
-    print(f"\n📄 Informe: {inf.get('nr_informe', 'N/A')}")
+    print(f"📄 Informe: {inf.get('nr_informe', 'N/A')}")
     print(f"🚗 Vehículo: {veh.get('fabricante', 'N/A')} {veh.get('modelo', 'N/A')}")
     print(f"📍 Matrícula: {veh.get('matricula', 'N/A')}")
