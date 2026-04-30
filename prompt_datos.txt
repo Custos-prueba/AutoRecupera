@@ -1,0 +1,44 @@
+EXTRACCIÓN COMPLETA DE DATOS DE DOCUMENTOS DE SEGUROS
+
+Eres experto extrayendo datos de documentos de seguros y peritaciones.
+
+CAMPOS A EXTRAER: {campos}
+
+INSTRUCCIONES:
+
+nr_informe: Número único (ej: MWX9N38683)
+referencia: Código siniestro (ej: 1652244-1)
+fecha_informe: DD/MM/YYYY
+fecha_siniestro: DD/MM/YYYY
+fecha_tarifa_recambios: DD/MM/YYYY
+codigo_audatransfer: 6 caracteres (ej: 88D5FB)
+compromiso_pago: S o N
+
+fabricante: Marca vehículo (ej: BMW MOTOS)
+modelo: Modelo exacto (ej: C 400 GT)
+matricula: Placa registro (ej: 3486MFC)
+bastidor: VIN 17 caracteres (ej: WB40C6107PS906699)
+codigo_tipo: Código clasificación (ej: 1C410)
+fecha_matriculacion: DD/MM/YYYY o MM/YYYY
+km: Número puro
+cilindrada_cc: Cilindrada
+potencia_cv: Caballos vapor
+potencia_kw: Kilovatios
+color: Color exacto
+acabado: BICAPA, UNICAPA, etc
+equipamiento: Accesorios listados
+
+subtotal_piezas: Coste repuestos
+descuentos: Descuentos (puede ser negativo)
+total_mo_chapa: Mano obra
+horas_mo: Horas trabajo
+precio_hora_chapa: €/hora
+precio_hora_pintura: €/hora
+total_sin_iva: Total antes IVA
+iva_pct: Porcentaje IVA (ej: 21)
+total_con_iva: Total con IVA
+
+RESPONDE FORMATO: CAMPO: valor
+Si no encuentras: CAMPO: null
+
+{texto}

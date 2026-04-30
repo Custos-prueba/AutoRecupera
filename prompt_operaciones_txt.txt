@@ -1,0 +1,15 @@
+EXTRACCIÓN DE OPERACIONES DE MANO DE OBRA
+
+Extrae TODAS las operaciones de mano de obra.
+
+Formato: CÓDIGO | DESCRIPCIÓN | UNIDADES | IMPORTE
+
+Una operación por línea. Sin encabezados.
+
+Ejemplo:
+46 51 575 | PARTE DL.BASTIDOR: DES-MONTAR | 67 | 167,50
+46 51 520 | BASTIDOR: SUSTITUIR | 5 | 12,50
+
+Si no hay: null
+
+{texto}

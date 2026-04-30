@@ -15,10 +15,7 @@ from datetime import datetime
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://10.68.52.11:11434")
 MODELO_TEXTO = "qwen2.5:7b"
-MODELO_VISION = "llava:latest" 
-PROMPT_FILE = "prompt_template.txt"
-PROMPT_IMAGENES_FILE = "prompt_imagenes.txt"  # ← NUEVO
-
+MODELO_VISION = "llava:latest"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -29,6 +26,43 @@ logging.basicConfig(
     ]
 )
 log = logging.getLogger(__name__)
+
+# ============ CARGAR PROMPTS DESDE TXT ============
+
+def cargar_prompt_txt(archivo):
+    """Carga un prompt desde archivo txt"""
+    try:
+        with open(archivo, "r", encoding="utf-8") as f:
+            contenido = f.read()
+        log.info(f"[PROMPTS] ✓ Cargado: {archivo}")
+        return contenido
+    except FileNotFoundError:
+        log.error(f"[PROMPTS] ✗ No existe: {archivo}")
+        return None
+
+# Cargar prompts como variables globales
+PROMPT_DATOS = None
+PROMPT_PIEZAS = None
+PROMPT_OPERACIONES = None
+PROMPT_NOTAS = None
+PROMPT_IMAGENES = None
+
+def inicializar_prompts():
+    """Carga todos los prompts al inicio"""
+    global PROMPT_DATOS, PROMPT_PIEZAS, PROMPT_OPERACIONES, PROMPT_NOTAS, PROMPT_IMAGENES
+    
+    PROMPT_DATOS = cargar_prompt_txt("prompt_datos.txt")
+    PROMPT_PIEZAS = cargar_prompt_txt("prompt_piezas_txt.txt")
+    PROMPT_OPERACIONES = cargar_prompt_txt("prompt_operaciones_txt.txt")
+    PROMPT_NOTAS = cargar_prompt_txt("prompt_notas_txt.txt")
+    PROMPT_IMAGENES = cargar_prompt_txt("prompt_imagenes_txt.txt")
+    
+    if all([PROMPT_DATOS, PROMPT_PIEZAS, PROMPT_OPERACIONES, PROMPT_NOTAS, PROMPT_IMAGENES]):
+        log.info("[PROMPTS]  Todos los prompts cargados correctamente")
+        return True
+    else:
+        log.warning("[PROMPTS] ⚠ Algunos prompts no se pudieron cargar")
+        return False
 
 # ============ VERIFICACIÓN DE OLLAMA ============
 
@@ -41,27 +75,14 @@ def verificar_ollama():
         elapsed = time.time() - inicio
         
         if response.status_code == 200:
-            log.info(f"[VERIFICACIÓN]  Conectado en {elapsed:.2f}s")
+            log.info(f"[VERIFICACIÓN] ✓ Conectado en {elapsed:.2f}s")
             return True
         else:
-            log.error(f"[VERIFICACIÓN]  Status {response.status_code}")
+            log.error(f"[VERIFICACIÓN] ✗ Status {response.status_code}")
             return False
     except Exception as e:
-        log.error(f"[VERIFICACIÓN]  Error: {e}")
+        log.error(f"[VERIFICACIÓN] ✗ Error: {e}")
         return False
-
-# ============ CARGAR PROMPT DESDE ARCHIVO ============
-
-def cargar_prompt_template():
-    """Lee el prompt desde archivo"""
-    try:
-        with open(PROMPT_FILE, "r", encoding="utf-8") as f:
-            template = f.read()
-        log.info(f"[PROMPT] Cargado desde {PROMPT_FILE}")
-        return template
-    except FileNotFoundError:
-        log.error(f"[PROMPT] ✗ No existe {PROMPT_FILE}")
-        return None
 
 # ============ CHAT CON OLLAMA (STREAMING) ============
 
@@ -72,17 +93,17 @@ def chat_ollama(model, prompt, timeout=300):
         payload = {
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
-            "stream": True  # ← STREAMING ACTIVADO
+            "stream": True
         }
         
-        log.info(f"[STREAMING] Conectando a {model} ({len(prompt)} chars)...")
+        log.info(f"[STREAMING] {model} ({len(prompt)} chars)...")
         
         response = requests.post(
             f"{OLLAMA_HOST}/api/chat",
             json=payload,
             timeout=timeout,
             verify=False,
-            stream=True  # ← STREAMING EN requests
+            stream=True
         )
         
         respuesta_completa = ""
@@ -96,23 +117,20 @@ def chat_ollama(model, prompt, timeout=300):
                         contenido = chunk["message"]["content"]
                         respuesta_completa += contenido
                         chunk_count += 1
-                        # Mostrar chunks pequeños
-                        if len(contenido) > 0:
-                            log.info(f"[STREAMING] Chunk {chunk_count}: {contenido[:50]}...")
                 except:
                     pass
         
         elapsed = time.time() - inicio
-        log.info(f"[STREAMING]  Completado en {elapsed:.2f}s ({chunk_count} chunks, {len(respuesta_completa)} chars)")
+        log.info(f"[STREAMING] ✓ {elapsed:.2f}s ({chunk_count} chunks, {len(respuesta_completa)} chars)")
         return respuesta_completa
             
     except requests.exceptions.Timeout:
         elapsed = time.time() - inicio
-        log.error(f"[STREAMING]  TIMEOUT después de {elapsed:.2f}s")
+        log.error(f"[STREAMING] ✗ TIMEOUT {elapsed:.2f}s")
         return None
     except Exception as e:
         elapsed = time.time() - inicio
-        log.error(f"[STREAMING]  Error en {elapsed:.2f}s: {e}")
+        log.error(f"[STREAMING] ✗ Error {elapsed:.2f}s: {e}")
         return None
 
 # ============ GUARDAR JSON ============
@@ -142,7 +160,7 @@ def guardar_json(data, ruta_salida):
         log.error(f"[JSON] Error: {e}")
         return False
 
-# ============ FUNCIONES DE PROCESAMIENTO ============
+# ============ FUNCIONES DE UTILIDAD ============
 
 def cronometro(nombre):
     class Timer:
@@ -189,10 +207,6 @@ def redimensionar_imagen(img_bytes, max_px=512):
     img.save(buf, format="JPEG", quality=75)
     return buf.getvalue()
 
-
-
-
-
 def pdf_to_images(pdf_path, max_imagenes=6, min_ancho=300, min_alto=200):
     imagenes = []
     try:
@@ -201,7 +215,6 @@ def pdf_to_images(pdf_path, max_imagenes=6, min_ancho=300, min_alto=200):
             if len(imagenes) >= max_imagenes:
                 break
             try:
-                # Nueva API de pypdf
                 if "/XObject" in page["/Resources"]:
                     xobject = page["/Resources"]["/XObject"].get_object()
                     for obj_name in xobject:
@@ -236,20 +249,14 @@ def pdf_to_images(pdf_path, max_imagenes=6, min_ancho=300, min_alto=200):
     log.info(f"[IMG] Total: {len(imagenes)}")
     return imagenes
 
-
-
-
+# ============ FUNCIONES DE EXTRACCIÓN ============
 
 def extraer_bloque(texto, campos):
-    """Extrae datos usando prompt desde archivo + streaming"""
-    template = cargar_prompt_template()
-    if not template:
-        return {}
-    
+    """Extrae datos usando PROMPT_DATOS + streaming"""
     campos_str = ", ".join(campos)
-    prompt = template.format(campos=campos_str, texto=texto)
+    prompt = PROMPT_DATOS.format(campos=campos_str, texto=texto)
     
-    log.info(f"[EXTRACCIÓN] Procesando bloque ({len(texto)} chars, {len(campos)} campos)...")
+    log.info(f"[EXTRACCIÓN] Bloque ({len(texto)} chars, {len(campos)} campos)...")
     respuesta = chat_ollama(MODELO_TEXTO, prompt, timeout=300)
     if not respuesta:
         return {}
@@ -262,10 +269,89 @@ def extraer_bloque(texto, campos):
             if valor and valor.lower() != "null" and len(valor) < 150:
                 campos_extraidos[clave.strip()] = valor
     
-    log.info(f"[EXTRACCIÓN]  Campos encontrados: {len(campos_extraidos)}")
+    log.info(f"[EXTRACCIÓN] ✓ {len(campos_extraidos)} campos encontrados")
     return campos_extraidos
 
+def extraer_piezas_sustituidas(bloques):
+    """Extrae piezas sustituidas usando PROMPT_PIEZAS + streaming"""
+    try:
+        texto_completo = " ".join(bloques)
+        prompt = PROMPT_PIEZAS.format(texto=texto_completo)
+        
+        respuesta = chat_ollama(MODELO_TEXTO, prompt, timeout=300)
+        if not respuesta or respuesta.lower() == "null":
+            return []
+        
+        piezas = []
+        for linea in respuesta.strip().splitlines():
+            if "|" in linea and "POSICIÓN" not in linea:
+                partes = [p.strip() for p in linea.split("|")]
+                if len(partes) >= 5:
+                    piezas.append({
+                        "posicion": partes[0],
+                        "descripcion": partes[1],
+                        "referencia": partes[2],
+                        "cantidad": partes[3],
+                        "precio": partes[4]
+                    })
+        
+        log.info(f"[PIEZAS] ✓ {len(piezas)} piezas extraídas")
+        return piezas
+    except Exception as e:
+        log.error(f"[PIEZAS] ✗ Error: {e}")
+        return []
+
+def extraer_operaciones_mo(bloques):
+    """Extrae operaciones mano de obra usando PROMPT_OPERACIONES + streaming"""
+    try:
+        texto_completo = " ".join(bloques)
+        prompt = PROMPT_OPERACIONES.format(texto=texto_completo)
+        
+        respuesta = chat_ollama(MODELO_TEXTO, prompt, timeout=300)
+        if not respuesta or respuesta.lower() == "null":
+            return []
+        
+        operaciones = []
+        for linea in respuesta.strip().splitlines():
+            if "|" in linea and "CÓDIGO" not in linea:
+                partes = [p.strip() for p in linea.split("|")]
+                if len(partes) >= 4:
+                    operaciones.append({
+                        "codigo": partes[0],
+                        "descripcion": partes[1],
+                        "unidades": partes[2],
+                        "importe": partes[3]
+                    })
+        
+        log.info(f"[OPERACIONES] ✓ {len(operaciones)} operaciones extraídas")
+        return operaciones
+    except Exception as e:
+        log.error(f"[OPERACIONES] ✗ Error: {e}")
+        return []
+
+def extraer_notas_importantes(bloques):
+    """Extrae notas usando PROMPT_NOTAS + streaming"""
+    try:
+        texto_completo = " ".join(bloques)
+        prompt = PROMPT_NOTAS.format(texto=texto_completo)
+        
+        respuesta = chat_ollama(MODELO_TEXTO, prompt, timeout=300)
+        if not respuesta or respuesta.lower() == "null":
+            return []
+        
+        notas = []
+        for linea in respuesta.strip().splitlines():
+            if linea.strip() and len(linea.strip()) > 5:
+                notas.append(linea.strip())
+        
+        log.info(f"[NOTAS] ✓ {len(notas)} notas extraídas")
+        return notas
+    except Exception as e:
+        log.error(f"[NOTAS] ✗ Error: {e}")
+        return []
+
 def extraer_datos_texto(bloques):
+    """Extrae todos los datos del texto usando streaming"""
     campos_bloque = [
         ["nr_informe", "referencia", "fecha_informe", "fecha_siniestro",
          "fabricante", "modelo", "matricula", "bastidor", "codigo_audatransfer",
@@ -287,6 +373,17 @@ def extraer_datos_texto(bloques):
                         campos_acumulados[k] = v
 
     c = campos_acumulados
+    
+    # Extraer piezas, operaciones y notas CON STREAMING
+    with cronometro("Extracción de piezas"):
+        piezas = extraer_piezas_sustituidas(bloques)
+    
+    with cronometro("Extracción de operaciones"):
+        operaciones = extraer_operaciones_mo(bloques)
+    
+    with cronometro("Extracción de notas"):
+        notas = extraer_notas_importantes(bloques)
+    
     return {
         "informe": {
             "nr_informe": c.get("nr_informe"),
@@ -322,33 +419,22 @@ def extraer_datos_texto(bloques):
             "total_sin_iva": c.get("total_sin_iva"),
             "iva_pct": c.get("iva_pct"),
             "total_con_iva": c.get("total_con_iva"),
-        }
+        },
+        "piezas_sustituidas": piezas,
+        "operaciones_mano_obra": operaciones,
+        "notas_importantes": notas
     }
 
-def cargar_prompt_imagenes():
-    """Lee el prompt de imágenes desde archivo"""
-    try:
-        with open(PROMPT_IMAGENES_FILE, "r", encoding="utf-8") as f:
-            return f.read()
-    except FileNotFoundError:
-        log.error(f"[IMG] ✗ No existe {PROMPT_IMAGENES_FILE}")
-        return None
-
-
-
 def describir_imagenes(imagenes, datos_ya_extraidos):
+    """Analiza imágenes usando PROMPT_IMAGENES + streaming"""
     if not imagenes:
         log.info("[IMG] Sin imágenes disponibles")
         return "Sin imagenes de daños disponibles."
 
-    prompt = cargar_prompt_imagenes()
-    if not prompt:
-        return "Error: prompt de imágenes no disponible"
-
     try:
         payload = {
             "model": MODELO_VISION,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": [{"role": "user", "content": PROMPT_IMAGENES}],
             "stream": False
         }
         
@@ -366,21 +452,18 @@ def describir_imagenes(imagenes, datos_ya_extraidos):
         
         if response.status_code == 200:
             content = response.json()['message']['content']
-            log.info(f"[IMG]  Análisis completado ({len(content)} chars)")
+            log.info(f"[IMG] ✓ Análisis completado ({len(content)} chars)")
             return content
         else:
-            log.error(f"[IMG]  HTTP {response.status_code}")
+            log.error(f"[IMG] ✗ HTTP {response.status_code}")
             return "Error en análisis de imágenes"
             
     except Exception as e:
-        log.error(f"[IMG]  Error: {e}")
+        log.error(f"[IMG] ✗ Error: {e}")
         return "Error analizando imágenes"
 
-
-
-
-
 def procesar_pdf(archivo_pdf, password=None):
+    """Procesa el PDF completo"""
     temp_unlocked = "temp_unlocked.pdf"
     inicio_total = time.time()
     log.info(f"[PROCESAMIENTO] === INICIO: {archivo_pdf} ===")
@@ -440,6 +523,11 @@ if __name__ == "__main__":
     if not os.path.exists(pdf):
         log.error(f"[MAIN] No existe: {pdf}")
         sys.exit(1)
+    
+    # Cargar prompts desde archivos txt como variables globales
+    log.info("[MAIN] Inicializando prompts...")
+    if not inicializar_prompts():
+        log.warning("[MAIN] ⚠ Algunos prompts no se pudieron cargar, continuando...")
 
     if not verificar_ollama():
         log.error("[MAIN] No hay conexión a Ollama")
