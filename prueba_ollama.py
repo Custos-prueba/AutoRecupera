@@ -15,8 +15,10 @@ from datetime import datetime
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://10.68.52.11:11434")
 MODELO_TEXTO = "qwen2.5:7b"
-MODELO_VISION = "qwen2.5vl:7b"
+MODELO_VISION = "llava:latest" 
 PROMPT_FILE = "prompt_template.txt"
+PROMPT_IMAGENES_FILE = "prompt_imagenes.txt"  # ← NUEVO
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -302,13 +304,25 @@ def extraer_datos_texto(bloques):
         }
     }
 
+def cargar_prompt_imagenes():
+    """Lee el prompt de imágenes desde archivo"""
+    try:
+        with open(PROMPT_IMAGENES_FILE, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        log.error(f"[IMG] ✗ No existe {PROMPT_IMAGENES_FILE}")
+        return None
+
+
+
 def describir_imagenes(imagenes, datos_ya_extraidos):
     if not imagenes:
         log.info("[IMG] Sin imágenes disponibles")
         return "Sin imagenes de daños disponibles."
 
-    prompt = f"""Eres perito de seguros. Analiza estas imagenes de vehiculo siniestrado.
-Describe daños visibles: zona, tipo, gravedad. Sé conciso, sin markdown."""
+    prompt = cargar_prompt_imagenes()
+    if not prompt:
+        return "Error: prompt de imágenes no disponible"
 
     try:
         payload = {
@@ -320,12 +334,12 @@ Describe daños visibles: zona, tipo, gravedad. Sé conciso, sin markdown."""
         if imagenes:
             payload["messages"][0]["images"] = imagenes
         
-        log.info(f"[IMG] Enviando {len(imagenes)} imágenes a análisis...")
+        log.info(f"[IMG] Analizando {len(imagenes)} imágenes con {MODELO_VISION}...")
         
         response = requests.post(
             f"{OLLAMA_HOST}/api/chat",
             json=payload,
-            timeout=300,
+            timeout=600,
             verify=False
         )
         
@@ -335,11 +349,15 @@ Describe daños visibles: zona, tipo, gravedad. Sé conciso, sin markdown."""
             return content
         else:
             log.error(f"[IMG]  HTTP {response.status_code}")
-            return "Error en análisis"
+            return "Error en análisis de imágenes"
             
     except Exception as e:
         log.error(f"[IMG]  Error: {e}")
         return "Error analizando imágenes"
+
+
+
+
 
 def procesar_pdf(archivo_pdf, password=None):
     temp_unlocked = "temp_unlocked.pdf"
@@ -420,5 +438,4 @@ if __name__ == "__main__":
     print(f"📄 Informe: {inf.get('nr_informe', 'N/A')}")
     print(f"🚗 Vehículo: {veh.get('fabricante', 'N/A')} {veh.get('modelo', 'N/A')}")
     print(f"📍 Matrícula: {veh.get('matricula', 'N/A')}")
-    
     print("\n📋 Ver logs en: autorecupera.log")
