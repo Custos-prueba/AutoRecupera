@@ -16,6 +16,7 @@ from datetime import datetime
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://10.68.52.11:11434")
 MODELO_TEXTO = "qwen2.5:7b"
 MODELO_VISION = "qwen2.5vl:7b"
+PROMPT_FILE = "prompt_template.txt"
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,66 +39,78 @@ def verificar_ollama():
         elapsed = time.time() - inicio
         
         if response.status_code == 200:
-            log.info(f"[VERIFICACIÓN] ✓ Conectado en {elapsed:.2f}s")
+            log.info(f"[VERIFICACIÓN]  Conectado en {elapsed:.2f}s")
             return True
         else:
-            log.error(f"[VERIFICACIÓN] ✗ Status {response.status_code}")
+            log.error(f"[VERIFICACIÓN]  Status {response.status_code}")
             return False
-    except requests.exceptions.Timeout:
-        log.error(f"[VERIFICACIÓN] ✗ TIMEOUT en verificación")
-        return False
-    except requests.exceptions.ConnectionError as e:
-        log.error(f"[VERIFICACIÓN] ✗ No se puede conectar a {OLLAMA_HOST}")
-        log.error(f"[VERIFICACIÓN] Error: {type(e).__name__}")
-        return False
     except Exception as e:
-        log.error(f"[VERIFICACIÓN] ✗ Error: {e}")
+        log.error(f"[VERIFICACIÓN]  Error: {e}")
         return False
 
-# ============ CHAT CON OLLAMA ============
+# ============ CARGAR PROMPT DESDE ARCHIVO ============
 
-def chat_ollama(model, prompt, timeout=180):
-    """Envía un prompt a Ollama y retorna la respuesta"""
+def cargar_prompt_template():
+    """Lee el prompt desde archivo"""
+    try:
+        with open(PROMPT_FILE, "r", encoding="utf-8") as f:
+            template = f.read()
+        log.info(f"[PROMPT] Cargado desde {PROMPT_FILE}")
+        return template
+    except FileNotFoundError:
+        log.error(f"[PROMPT] ✗ No existe {PROMPT_FILE}")
+        return None
+
+# ============ CHAT CON OLLAMA (STREAMING) ============
+
+def chat_ollama(model, prompt, timeout=300):
+    """Envía un prompt a Ollama con streaming"""
     inicio = time.time()
     try:
         payload = {
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
-            "stream": False
+            "stream": True  # ← STREAMING ACTIVADO
         }
         
-        log.info(f"[CHAT] Enviando a {model} (timeout={timeout}s, {len(prompt)} chars)")
+        log.info(f"[STREAMING] Conectando a {model} ({len(prompt)} chars)...")
         
         response = requests.post(
             f"{OLLAMA_HOST}/api/chat",
             json=payload,
             timeout=timeout,
-            verify=False
+            verify=False,
+            stream=True  # ← STREAMING EN requests
         )
         
-        elapsed = time.time() - inicio
+        respuesta_completa = ""
+        chunk_count = 0
         
-        if response.status_code == 200:
-            content = response.json()['message']['content']
-            log.info(f"[CHAT] ✓ Respuesta en {elapsed:.2f}s ({len(content)} chars)")
-            return content
-        else:
-            log.error(f"[CHAT] ✗ HTTP {response.status_code} en {elapsed:.2f}s")
-            return None
+        for linea in response.iter_lines():
+            if linea:
+                try:
+                    chunk = json.loads(linea)
+                    if "message" in chunk and "content" in chunk["message"]:
+                        contenido = chunk["message"]["content"]
+                        respuesta_completa += contenido
+                        chunk_count += 1
+                        # Mostrar chunks pequeños
+                        if len(contenido) > 0:
+                            log.info(f"[STREAMING] Chunk {chunk_count}: {contenido[:50]}...")
+                except:
+                    pass
+        
+        elapsed = time.time() - inicio
+        log.info(f"[STREAMING]  Completado en {elapsed:.2f}s ({chunk_count} chunks, {len(respuesta_completa)} chars)")
+        return respuesta_completa
             
     except requests.exceptions.Timeout:
         elapsed = time.time() - inicio
-        log.error(f"[CHAT] ✗ TIMEOUT después de {elapsed:.2f}s (límite: {timeout}s)")
-        return None
-    except requests.exceptions.ConnectionError as e:
-        elapsed = time.time() - inicio
-        log.error(f"[CHAT] ✗ CONNECTION ERROR en {elapsed:.2f}s")
-        log.error(f"[CHAT] {type(e).__name__}: {str(e)[:100]}")
+        log.error(f"[STREAMING]  TIMEOUT después de {elapsed:.2f}s")
         return None
     except Exception as e:
         elapsed = time.time() - inicio
-        log.error(f"[CHAT] ✗ ERROR en {elapsed:.2f}s: {type(e).__name__}")
-        log.error(f"[CHAT] {str(e)[:100]}")
+        log.error(f"[STREAMING]  Error en {elapsed:.2f}s: {e}")
         return None
 
 # ============ GUARDAR JSON ============
@@ -205,23 +218,16 @@ def pdf_to_images(pdf_path, max_imagenes=6, min_ancho=300, min_alto=200):
     return imagenes
 
 def extraer_bloque(texto, campos):
+    """Extrae datos usando prompt desde archivo + streaming"""
+    template = cargar_prompt_template()
+    if not template:
+        return {}
+    
     campos_str = ", ".join(campos)
+    prompt = template.format(campos=campos_str, texto=texto)
     
-    prompt = f"""Eres experto extrayendo datos de documentos de seguros.
-El documento puede ser de cualquier aseguradora (Audatex, AXA, Mapfre, etc).
-
-Extrae estos campos: {campos_str}
-
-Responde SOLO en formato:
-CAMPO: valor
-
-Si no encuentras, escribe: CAMPO: null
-
-Documento:
-{texto}
-"""
-    
-    respuesta = chat_ollama(MODELO_TEXTO, prompt, timeout=180)
+    log.info(f"[EXTRACCIÓN] Procesando bloque ({len(texto)} chars, {len(campos)} campos)...")
+    respuesta = chat_ollama(MODELO_TEXTO, prompt, timeout=300)
     if not respuesta:
         return {}
     
@@ -232,6 +238,8 @@ Documento:
             valor = valor.strip()
             if valor and valor.lower() != "null" and len(valor) < 150:
                 campos_extraidos[clave.strip()] = valor
+    
+    log.info(f"[EXTRACCIÓN]  Campos encontrados: {len(campos_extraidos)}")
     return campos_extraidos
 
 def extraer_datos_texto(bloques):
@@ -250,9 +258,7 @@ def extraer_datos_texto(bloques):
     for i, bloque in enumerate(bloques[:3]):
         if i < len(campos_bloque):
             with cronometro(f"Bloque {i+1}"):
-                log.info(f"[EXTRACCIÓN] Bloque {i+1} ({len(bloque)} chars)...")
                 resultado = extraer_bloque(bloque, campos_bloque[i])
-                log.info(f"[EXTRACCIÓN] Campos extraídos: {len(resultado)}")
                 for k, v in resultado.items():
                     if v is not None and campos_acumulados.get(k) is None:
                         campos_acumulados[k] = v
@@ -325,14 +331,14 @@ Describe daños visibles: zona, tipo, gravedad. Sé conciso, sin markdown."""
         
         if response.status_code == 200:
             content = response.json()['message']['content']
-            log.info(f"[IMG] ✓ Análisis completado ({len(content)} chars)")
+            log.info(f"[IMG]  Análisis completado ({len(content)} chars)")
             return content
         else:
-            log.error(f"[IMG] ✗ HTTP {response.status_code}")
+            log.error(f"[IMG]  HTTP {response.status_code}")
             return "Error en análisis"
             
     except Exception as e:
-        log.error(f"[IMG] ✗ Error: {type(e).__name__}: {str(e)[:100]}")
+        log.error(f"[IMG]  Error: {e}")
         return "Error analizando imágenes"
 
 def procesar_pdf(archivo_pdf, password=None):
@@ -415,4 +421,4 @@ if __name__ == "__main__":
     print(f"🚗 Vehículo: {veh.get('fabricante', 'N/A')} {veh.get('modelo', 'N/A')}")
     print(f"📍 Matrícula: {veh.get('matricula', 'N/A')}")
     
-    print("\n📋 Ver logs completos en: autorecupera.log")
+    print("\n📋 Ver logs en: autorecupera.log")
