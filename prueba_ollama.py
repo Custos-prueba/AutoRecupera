@@ -189,6 +189,10 @@ def redimensionar_imagen(img_bytes, max_px=512):
     img.save(buf, format="JPEG", quality=75)
     return buf.getvalue()
 
+
+
+
+
 def pdf_to_images(pdf_path, max_imagenes=6, min_ancho=300, min_alto=200):
     imagenes = []
     try:
@@ -196,28 +200,45 @@ def pdf_to_images(pdf_path, max_imagenes=6, min_ancho=300, min_alto=200):
         for page_num, page in enumerate(doc.pages):
             if len(imagenes) >= max_imagenes:
                 break
-            for img_index, img in enumerate(page.images):
-                if len(imagenes) >= max_imagenes:
-                    break
-                try:
-                    img_data = img.get_object()
-                    width = img_data.get("/Width", 0)
-                    height = img_data.get("/Height", 0)
-                    if width < min_ancho or height < min_alto:
-                        continue
-                    img_bytes = img.get_data()
-                    img_bytes = redimensionar_imagen(img_bytes, max_px=512)
-                    img_b64 = base64.b64encode(img_bytes).decode("utf-8")
-                    imagenes.append(img_b64)
-                    log.info(f"[IMG] Imagen aceptada ({width}x{height})")
-                except Exception as e:
-                    log.warning(f"[IMG] Error procesando: {e}")
-                    continue
+            try:
+                # Nueva API de pypdf
+                if "/XObject" in page["/Resources"]:
+                    xobject = page["/Resources"]["/XObject"].get_object()
+                    for obj_name in xobject:
+                        if len(imagenes) >= max_imagenes:
+                            break
+                        try:
+                            obj = xobject[obj_name]
+                            if obj["/Subtype"] == "/Image":
+                                width = int(obj.get("/Width", 0))
+                                height = int(obj.get("/Height", 0))
+                                
+                                if width < min_ancho or height < min_alto:
+                                    continue
+                                
+                                img_data = obj.get_data()
+                                if not img_data:
+                                    continue
+                                
+                                img_bytes = redimensionar_imagen(img_data, max_px=512)
+                                img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+                                imagenes.append(img_b64)
+                                log.info(f"[IMG] Página {page_num+1}: Imagen ({width}x{height})")
+                        except Exception as e:
+                            log.debug(f"[IMG] Error procesando: {e}")
+                            continue
+            except Exception as e:
+                log.debug(f"[IMG] Error en página: {e}")
+                continue
     except Exception as e:
-        log.warning(f"[IMG] Error extrayendo: {e}")
+        log.warning(f"[IMG] Error: {e}")
     
-    log.info(f"[IMG] Total extraídas: {len(imagenes)}")
+    log.info(f"[IMG] Total: {len(imagenes)}")
     return imagenes
+
+
+
+
 
 def extraer_bloque(texto, campos):
     """Extrae datos usando prompt desde archivo + streaming"""
