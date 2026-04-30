@@ -32,31 +32,41 @@ log = logging.getLogger(__name__)
 def verificar_ollama():
     """Verifica que Ollama está disponible"""
     try:
-        log.info(f"Verificando conexión a {OLLAMA_HOST}...")
+        log.info(f"[VERIFICACIÓN] Conectando a {OLLAMA_HOST}/api/tags...")
+        inicio = time.time()
         response = requests.get(f"{OLLAMA_HOST}/api/tags", timeout=5, verify=False)
+        elapsed = time.time() - inicio
+        
         if response.status_code == 200:
-            log.info(f"✓ Conectado a Ollama")
+            log.info(f"[VERIFICACIÓN] ✓ Conectado en {elapsed:.2f}s")
             return True
         else:
-            log.error(f"✗ Error: Status {response.status_code}")
+            log.error(f"[VERIFICACIÓN] ✗ Status {response.status_code}")
             return False
-    except requests.exceptions.ConnectionError:
-        log.error(f"✗ No se puede conectar a {OLLAMA_HOST}")
+    except requests.exceptions.Timeout:
+        log.error(f"[VERIFICACIÓN] ✗ TIMEOUT en verificación")
+        return False
+    except requests.exceptions.ConnectionError as e:
+        log.error(f"[VERIFICACIÓN] ✗ No se puede conectar a {OLLAMA_HOST}")
+        log.error(f"[VERIFICACIÓN] Error: {type(e).__name__}")
         return False
     except Exception as e:
-        log.error(f"✗ Error: {e}")
+        log.error(f"[VERIFICACIÓN] ✗ Error: {e}")
         return False
 
 # ============ CHAT CON OLLAMA ============
 
 def chat_ollama(model, prompt, timeout=180):
     """Envía un prompt a Ollama y retorna la respuesta"""
+    inicio = time.time()
     try:
         payload = {
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
             "stream": False
         }
+        
+        log.info(f"[CHAT] Enviando a {model} (timeout={timeout}s, {len(prompt)} chars)")
         
         response = requests.post(
             f"{OLLAMA_HOST}/api/chat",
@@ -65,20 +75,29 @@ def chat_ollama(model, prompt, timeout=180):
             verify=False
         )
         
+        elapsed = time.time() - inicio
+        
         if response.status_code == 200:
-            return response.json()['message']['content']
+            content = response.json()['message']['content']
+            log.info(f"[CHAT] ✓ Respuesta en {elapsed:.2f}s ({len(content)} chars)")
+            return content
         else:
-            log.error(f"Error: {response.status_code}")
+            log.error(f"[CHAT] ✗ HTTP {response.status_code} en {elapsed:.2f}s")
             return None
             
     except requests.exceptions.Timeout:
-        log.error(f"Timeout ({timeout}s)")
+        elapsed = time.time() - inicio
+        log.error(f"[CHAT] ✗ TIMEOUT después de {elapsed:.2f}s (límite: {timeout}s)")
         return None
     except requests.exceptions.ConnectionError as e:
-        log.error(f"Conexión rechazada: {e}")
+        elapsed = time.time() - inicio
+        log.error(f"[CHAT] ✗ CONNECTION ERROR en {elapsed:.2f}s")
+        log.error(f"[CHAT] {type(e).__name__}: {str(e)[:100]}")
         return None
     except Exception as e:
-        log.error(f"Error: {e}")
+        elapsed = time.time() - inicio
+        log.error(f"[CHAT] ✗ ERROR en {elapsed:.2f}s: {type(e).__name__}")
+        log.error(f"[CHAT] {str(e)[:100]}")
         return None
 
 # ============ GUARDAR JSON ============
@@ -102,10 +121,10 @@ def guardar_json(data, ruta_salida):
         with open(ruta_salida, 'w', encoding='utf-8') as f:
             json.dump(output, f, ensure_ascii=False, indent=2)
         
-        log.info(f"JSON guardado en: {ruta_salida}")
+        log.info(f"[JSON] Guardado en: {ruta_salida}")
         return True
     except Exception as e:
-        log.error(f"Error guardando JSON: {e}")
+        log.error(f"[JSON] Error: {e}")
         return False
 
 # ============ FUNCIONES DE PROCESAMIENTO ============
@@ -114,11 +133,11 @@ def cronometro(nombre):
     class Timer:
         def __enter__(self):
             self.inicio = time.time()
-            log.info(f"INICIO: {nombre}")
+            log.info(f"[TIMER] INICIO: {nombre}")
             return self
         def __exit__(self, *args):
             self.elapsed = time.time() - self.inicio
-            log.info(f"FIN: {nombre} — {self.elapsed:.2f}s")
+            log.info(f"[TIMER] FIN: {nombre} — {self.elapsed:.2f}s")
     return Timer()
 
 def unlock_pdf(input_path, output_path, password):
@@ -127,7 +146,7 @@ def unlock_pdf(input_path, output_path, password):
             pdf.save(output_path)
         return True
     except Exception as e:
-        log.error(f"Error al desbloquear PDF: {e}")
+        log.error(f"[PDF] Error al desbloquear: {e}")
         return False
 
 def extraer_texto_por_bloques(pdf_path, bloque_chars=2000):
@@ -138,13 +157,14 @@ def extraer_texto_por_bloques(pdf_path, bloque_chars=2000):
         try:
             texto_acumulado += page.extract_text() or ""
         except Exception as e:
-            log.warning(f"Error extrayendo texto de página: {e}")
+            log.warning(f"[PDF] Error extrayendo página: {e}")
             continue
         if len(texto_acumulado) >= bloque_chars:
             bloques.append(texto_acumulado[:bloque_chars])
             texto_acumulado = texto_acumulado[bloque_chars:]
     if texto_acumulado.strip():
         bloques.append(texto_acumulado)
+    log.info(f"[PDF] Extraídos {len(bloques)} bloques")
     return bloques
 
 def redimensionar_imagen(img_bytes, max_px=512):
@@ -174,14 +194,14 @@ def pdf_to_images(pdf_path, max_imagenes=6, min_ancho=300, min_alto=200):
                     img_bytes = redimensionar_imagen(img_bytes, max_px=512)
                     img_b64 = base64.b64encode(img_bytes).decode("utf-8")
                     imagenes.append(img_b64)
-                    log.info(f"Imagen aceptada ({width}x{height})")
+                    log.info(f"[IMG] Imagen aceptada ({width}x{height})")
                 except Exception as e:
-                    log.warning(f"Error procesando imagen: {e}")
+                    log.warning(f"[IMG] Error procesando: {e}")
                     continue
     except Exception as e:
-        log.warning(f"Error extrayendo imágenes: {e}")
+        log.warning(f"[IMG] Error extrayendo: {e}")
     
-    log.info(f"Imagenes extraidas: {len(imagenes)}")
+    log.info(f"[IMG] Total extraídas: {len(imagenes)}")
     return imagenes
 
 def extraer_bloque(texto, campos):
@@ -230,8 +250,9 @@ def extraer_datos_texto(bloques):
     for i, bloque in enumerate(bloques[:3]):
         if i < len(campos_bloque):
             with cronometro(f"Bloque {i+1}"):
-                log.info(f"Procesando bloque {i+1} ({len(bloque)} chars)...")
+                log.info(f"[EXTRACCIÓN] Bloque {i+1} ({len(bloque)} chars)...")
                 resultado = extraer_bloque(bloque, campos_bloque[i])
+                log.info(f"[EXTRACCIÓN] Campos extraídos: {len(resultado)}")
                 for k, v in resultado.items():
                     if v is not None and campos_acumulados.get(k) is None:
                         campos_acumulados[k] = v
@@ -277,24 +298,10 @@ def extraer_datos_texto(bloques):
 
 def describir_imagenes(imagenes, datos_ya_extraidos):
     if not imagenes:
+        log.info("[IMG] Sin imágenes disponibles")
         return "Sin imagenes de daños disponibles."
 
-    campos_encontrados = []
-    v = datos_ya_extraidos.get("vehiculo", {})
-    inf = datos_ya_extraidos.get("informe", {})
-    if v.get("km"):
-        campos_encontrados.append(f"km ({v['km']})")
-    if v.get("matricula"):
-        campos_encontrados.append(f"matricula ({v['matricula']})")
-    if v.get("bastidor"):
-        campos_encontrados.append(f"bastidor ({v['bastidor']})")
-
-    ya_tenemos = ""
-    if campos_encontrados:
-        ya_tenemos = f"\nTenemos: {', '.join(campos_encontrados)}\n"
-
     prompt = f"""Eres perito de seguros. Analiza estas imagenes de vehiculo siniestrado.
-{ya_tenemos}
 Describe daños visibles: zona, tipo, gravedad. Sé conciso, sin markdown."""
 
     try:
@@ -307,6 +314,8 @@ Describe daños visibles: zona, tipo, gravedad. Sé conciso, sin markdown."""
         if imagenes:
             payload["messages"][0]["images"] = imagenes
         
+        log.info(f"[IMG] Enviando {len(imagenes)} imágenes a análisis...")
+        
         response = requests.post(
             f"{OLLAMA_HOST}/api/chat",
             json=payload,
@@ -315,18 +324,21 @@ Describe daños visibles: zona, tipo, gravedad. Sé conciso, sin markdown."""
         )
         
         if response.status_code == 200:
-            return response.json()['message']['content']
+            content = response.json()['message']['content']
+            log.info(f"[IMG] ✓ Análisis completado ({len(content)} chars)")
+            return content
         else:
+            log.error(f"[IMG] ✗ HTTP {response.status_code}")
             return "Error en análisis"
             
     except Exception as e:
-        log.error(f"Error: {e}")
+        log.error(f"[IMG] ✗ Error: {type(e).__name__}: {str(e)[:100]}")
         return "Error analizando imágenes"
 
 def procesar_pdf(archivo_pdf, password=None):
     temp_unlocked = "temp_unlocked.pdf"
     inicio_total = time.time()
-    log.info(f"=== PROCESANDO: {archivo_pdf} ===")
+    log.info(f"[PROCESAMIENTO] === INICIO: {archivo_pdf} ===")
 
     if password:
         if not unlock_pdf(archivo_pdf, temp_unlocked, password):
@@ -338,7 +350,6 @@ def procesar_pdf(archivo_pdf, password=None):
     try:
         with cronometro("Extraccion de texto"):
             bloques = extraer_texto_por_bloques(path_to_process, bloque_chars=2000)
-            log.info(f"{len(bloques)} bloques")
 
         if not bloques or len("".join(bloques).strip()) < 50:
             return {"error": "PDF escaneado o vacio"}
@@ -357,11 +368,11 @@ def procesar_pdf(archivo_pdf, password=None):
         data["descripcion_visual_danos"] = descripcion
 
         total = time.time() - inicio_total
-        log.info(f"=== FIN — {total:.2f}s ===")
+        log.info(f"[PROCESAMIENTO] === FIN — {total:.2f}s ===")
         return data
 
     except Exception as e:
-        log.error(f"Error: {e}")
+        log.error(f"[PROCESAMIENTO] Error: {e}")
         return {"error": str(e)}
     finally:
         if os.path.exists(temp_unlocked):
@@ -372,7 +383,6 @@ def procesar_pdf(archivo_pdf, password=None):
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Uso: python autorecupera.py <archivo.pdf> [contraseña] [salida.json]")
-        print("Ej: python autorecupera.py informe.pdf")
         sys.exit(1)
 
     pdf      = sys.argv[1]
@@ -383,17 +393,17 @@ if __name__ == "__main__":
         OLLAMA_HOST = sys.argv[4]
 
     if not os.path.exists(pdf):
-        log.error(f"No existe: {pdf}")
+        log.error(f"[MAIN] No existe: {pdf}")
         sys.exit(1)
 
     if not verificar_ollama():
-        log.error("No hay conexión a Ollama")
+        log.error("[MAIN] No hay conexión a Ollama")
         sys.exit(1)
 
     resultado = procesar_pdf(pdf, password=password)
 
     if "error" in resultado:
-        log.error(f"Error: {resultado['error']}")
+        log.error(f"[MAIN] Error: {resultado['error']}")
         sys.exit(1)
 
     guardar_json(resultado, salida)
@@ -404,3 +414,5 @@ if __name__ == "__main__":
     print(f"📄 Informe: {inf.get('nr_informe', 'N/A')}")
     print(f"🚗 Vehículo: {veh.get('fabricante', 'N/A')} {veh.get('modelo', 'N/A')}")
     print(f"📍 Matrícula: {veh.get('matricula', 'N/A')}")
+    
+    print("\n📋 Ver logs completos en: autorecupera.log")
