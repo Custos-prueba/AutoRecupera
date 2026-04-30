@@ -14,7 +14,7 @@ from datetime import datetime
 # ============ CONFIGURACIÓN ============
 
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://10.68.52.11:11434")
-MODELO_TEXTO = "qwen2.5:14b"
+MODELO_TEXTO = "qwen2.5:3b"  # El más rápido
 MODELO_VISION = "qwen2.5vl:7b"
 
 logging.basicConfig(
@@ -50,7 +50,7 @@ def verificar_ollama():
 
 # ============ CHAT CON OLLAMA ============
 
-def chat_ollama(model, prompt, timeout=120):
+def chat_ollama(model, prompt, timeout=1280):
     """
     Envía un prompt a Ollama y retorna la respuesta
     """
